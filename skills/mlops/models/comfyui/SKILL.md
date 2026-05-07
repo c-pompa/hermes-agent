@@ -98,6 +98,23 @@ Uses rsync over ssh (resumable, skips if size+mtime match). Requires the Mac's p
 
 After upload the server sees the file immediately (host directory is bind-mounted into the container at `/opt/ComfyUI/models/`). For some node types ComfyUI caches the model list — call `python3 queue_workflow.py object-info CheckpointLoaderSimple` to verify the new file appears, or restart the container if needed.
 
+## Bundled workflows
+
+Two known-working API-format workflows live under `workflows/`. Both are minimal SD 1.5 text-to-image graphs (`CheckpointLoaderSimple → CLIPTextEncode×2 → KSampler → VAEDecode → SaveImage`) — small enough to read in one screen, fast enough to run as smoke tests on the 3070 (~10-30 s each).
+
+- `workflows/realistic-portrait.json` — uses `v1-5-pruned-emaonly.safetensors` (SD 1.5 base). Photorealistic prompt. Output prefix `realistic-portrait`.
+- `workflows/anime-portrait.json` — uses `Counterfeit-V3.0_fp16.safetensors`. Anime-style prompt. Output prefix `anime-portrait`.
+
+To run a workflow end-to-end (submit, wait, fetch):
+
+```bash
+python3 scripts/queue_workflow.py submit workflows/realistic-portrait.json --wait
+# captures prompt_id, blocks until done, prints output filename
+python3 scripts/queue_workflow.py output <prompt_id> --out ./renders/
+```
+
+Either checkpoint can be uploaded via `scripts/upload_model.sh checkpoints <local_path>` (rsync from the Mac), or pulled server-side via ComfyUI Manager / a direct download to `D:/Docker/comfyui/comfyui_data/models/checkpoints/`. To swap to a different checkpoint, edit the `ckpt_name` field in node `"4"`.
+
 ## Standard workflow
 
 When the user asks "render X with model Y":

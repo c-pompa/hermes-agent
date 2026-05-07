@@ -67,7 +67,9 @@ ssh -o BatchMode=yes -o ConnectTimeout=10 \
   >/dev/null
 
 echo "→ rsync ${SRC} → ${DEST}" >&2
-rsync -avh --partial --inplace --info=progress2 \
+# --progress (not --info=progress2) for portability: macOS ships rsync 2.6.9 which
+# predates --info; GNU rsync 3.x still accepts --progress.
+rsync -avh --partial --inplace --progress \
   -e "ssh -o BatchMode=yes -o ConnectTimeout=10" \
   "$SRC" "$DEST"
 
