@@ -1,0 +1,120 @@
+{
+  "title": "AnimateDiff Image-to-Video Landscape Animation",
+  "description": "Generates a short landscape animation from a reference image using AnimateDiff + IPAdapter (easier setup).",
+  "mode": "i2v",
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": ""
+    }
+  },
+  "2": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "sdxl_v0.9.safetensors"
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": ""
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": ""
+    }
+  },
+  "5": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "1",
+        0
+      ]
+    }
+  },
+  "6": {
+    "class_type": "IPAdapterAdvanced",
+    "inputs": {
+      "model": [
+        "2",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ],
+      "weight": 0.8,
+      "start_at": 0.0,
+      "end_at": 1.0
+    }
+  },
+  "7": {
+    "class_type": "ADE_AnimateDiffLoaderWithContext",
+    "inputs": {
+      "model_name": "mm_sdxl_v10_beta.safetensors"
+    }
+  },
+  "8": {
+    "class_type": "KSamplerAdvanced",
+    "inputs": {
+      "noise_seed": -1,
+      "steps": 20,
+      "cfg": 7.5,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "normal",
+      "start_at_step": 0,
+      "end_at_step": 20,
+      "denoise": 1.0
+    }
+  },
+  "9": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "8",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "9",
+        0
+      ],
+      "frame_rate": 12,
+      "format": "video/h264-mp4",
+      "filename_prefix": "landscape_anim"
+    }
+  },
+  "_meta_default_args": {
+    "prompt": "peaceful landscape with gentle wind movement, clouds drifting slowly, natural lighting",
+    "negative_prompt": "blurry, distorted, low quality, artifacts, static image",
+    "steps": 20,
+    "cfg": 7.5,
+    "seed": -1,
+    "frame_rate": 12,
+    "motion_strength": 1.0,
+    "ip_adapter_weight": 0.8
+  },
+  "_meta_requirements": {
+    "models": [
+      {
+        "name": "sdxl_v0.9",
+        "folder": "checkpoints"
+      },
+      {
+        "name": "mm_sdxl_v10_beta",
+        "folder": "animatediff_models"
+      },
+      {
+        "name": "ip_adapter_plus_face_sd15",
+        "folder": "ipadapter"
+      }
+    ]
+  }
+}

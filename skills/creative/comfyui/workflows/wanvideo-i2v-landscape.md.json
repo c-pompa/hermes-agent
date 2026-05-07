@@ -1,0 +1,42 @@
+{
+  "title": "Wan2.7 Image-to-Video Landscape Animation (API Style)",
+  "mode": "i2v",
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": ""
+    }
+  },
+  "2": {
+    "class_type": "Wan2ImageToVideoApi",
+    "inputs": {
+      "model": "wan2.7-i2v",
+      "first_frame": [
+        "1",
+        0
+      ],
+      "seed": 807660,
+      "prompt_extend": true,
+      "watermark": false
+    }
+  },
+  "3": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "2",
+        0
+      ],
+      "filename_prefix": "landscape_i2v",
+      "format": "mp4",
+      "codec": "h264"
+    }
+  },
+  "_meta_default_args": {
+    "prompt": "peaceful landscape with gentle wind movement, clouds drifting slowly",
+    "negative_prompt": "",
+    "seed": -1,
+    "duration": 5,
+    "resolution": "720P"
+  }
+}
