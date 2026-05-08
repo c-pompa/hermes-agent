@@ -755,6 +755,10 @@ def main(argv: list[str] | None = None) -> int:
     for w in warnings:
         log(f"WARN: {w}")
 
+    # ---- Filter non-node metadata before submission ----
+    # Strip keys like _meta_default_args, mode, title that aren't actual nodes
+    workflow = {k: v for k, v in workflow.items() if isinstance(v, dict) and 'class_type' in v}
+
     # ---- Submit ----
     submit_resp = runner.submit(workflow)
     if "_http_error" in submit_resp:
