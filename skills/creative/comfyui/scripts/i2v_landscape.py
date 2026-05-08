@@ -60,7 +60,7 @@ For full parameter control, use run_workflow.py directly:
     parser.add_argument("--steps", type=int, default=30, help="Generation steps (default: 30)")
     parser.add_argument("--cfg", type=float, default=4.5, help="Classifier-free guidance scale")
     parser.add_argument("--seed", "-s", type=int, default=-1, help="Random seed (-1 for random)")
-    parser.add_argument("--host", help=f"ComfyUI server URL (default: {os.getenv('COMFYUI_HOST', 'http://10.88.1.168:8190')})")
+    parser.add_argument("--host", help=f"ComfyUI server URL (default: {os.getenv('COMFYUI_HOST', 'http://10.88.1.168:18188')})")
     parser.add_argument("--output-dir", "-o", default="./outputs/i2v_landscape",
                         help="Output directory for the video (default: ./outputs/i2v_landscape)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show verbose output from run_workflow.py")
@@ -82,7 +82,7 @@ For full parameter control, use run_workflow.py directly:
         frames = max(25, min(int(seconds * 24), 160))
 
     # Build host URL
-    host = args.host or os.getenv("COMFYUI_HOST", "http://10.88.1.168:8190")
+    host = args.host or os.getenv("COMFYUI_HOST", "http://10.88.1.168:18188")
 
     # Select workflow file
     if args.workflow == "wanvideo":

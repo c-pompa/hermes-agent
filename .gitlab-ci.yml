@@ -21,8 +21,10 @@ validate-comfyui-skill:
   script:
     - echo "--- workflow JSON syntax ---"
     - for f in skills/mlops/models/comfyui/workflows/*.json; do echo "  $f"; jq empty "$f"; done
+    - for f in skills/creative/comfyui/workflows/*.json; do echo "  $f"; jq empty "$f"; done
     - echo "--- python script compile ---"
     - python -m py_compile skills/mlops/models/comfyui/scripts/queue_workflow.py
+    - python -m py_compile skills/creative/comfyui/scripts/*.py
     - echo "--- shell script syntax ---"
     - sh -n skills/mlops/models/comfyui/scripts/upload_model.sh
     - echo "all checks passed"
