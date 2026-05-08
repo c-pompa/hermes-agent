@@ -110,12 +110,11 @@ For full parameter control, use run_workflow.py directly:
 
     args_json = json.dumps(user_args)
 
-    # Build the command
+    # Build the command — run_workflow.py uses --input-image and auto-detects mode from workflow
     cmd = [
         sys.executable, str(RUN_WORKFLOW),
         "--workflow", str(workflow_file),
-        "--mode", "i2v",
-        "--image", str(img_path),
+        "--input-image", str(img_path),
         "--args", args_json,
         "--host", host,
         "--output-dir", args.output_dir,
