@@ -38,6 +38,9 @@ Remote naming differs per machine:
 - `.gitlab-ci.yml` — homelab GitLab CI (project-scoped runner).
 - `HERMES.md` — fork rule: in `hermes -w` worktree mode, commit + push to the
   fork remote before session exit (worktree is wiped on exit).
+- `FORK_UPDATE_RUNBOOK.md` — step-by-step procedure for updating this fork to a
+  newer upstream while re-applying this delta, and deploying to the mini
+  (gateway server) + client machines. Read it before doing an update.
 
 ### Agent code — ours, but bundled with a vendored sync ⚠
 - `agent/image_routing.py` — sniff magic bytes for image MIME, ignore a
