@@ -655,10 +655,7 @@ def is_api_format(workflow: Any) -> bool:
 def unwrap_workflow(payload: Any) -> dict:
     """Unwrap common wrapper variants. Returns API-format workflow or raises ValueError."""
     if isinstance(payload, dict) and is_api_format(payload):
-        # Strip metadata keys that aren't node entries (e.g., "title", "mode", "_meta_*")
-        nodes_only = {k: v for k, v in payload.items() 
-                      if isinstance(v, dict) and "class_type" in v}
-        return nodes_only
+        return payload
     # Some files wrap workflow under "prompt" key (e.g. saved /prompt payloads)
     if isinstance(payload, dict) and "prompt" in payload and is_api_format(payload["prompt"]):
         return payload["prompt"]

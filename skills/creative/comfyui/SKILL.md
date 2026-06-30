@@ -64,8 +64,8 @@ for workflow execution.
 | `fetch_logs.py` | Pull traceback / status messages for a given prompt_id |
 
 **Example workflows (`workflows/`):** SD 1.5, SDXL, Flux Dev, SDXL img2img,
-SDXL inpaint, ESRGAN upscale, AnimateDiff video, Wan T2V, **Wan I2V Landscape**,
-**AnimateDiff I2V Landscape**. See `workflows/README.md`.
+SDXL inpaint, ESRGAN upscale, AnimateDiff video, Wan T2V. See
+`workflows/README.md`.
 
 ## When to Use
 
@@ -531,74 +531,6 @@ curl -X POST "https://cloud.comfy.org/api/upload/image" \
   - `subfolder` is accepted on uploads but ignored — cloud has a flat namespace.
 - **Concurrent jobs:** Free/Standard: 1, Creator: 3, Pro: 5. Extras queue
   automatically. Use `run_batch.py --parallel N` to saturate your tier.
-
----
-
-### Image-to-Video for Landscape Animations
-
-For creating short animated clips from static images (landscape scenes, architectural renders, etc.), use the built-in I2V workflows in `workflows/`:
-
-**Available I2V workflows:**
-- **`wanvideo-i2v-landscape.md.json`** — WanVideo 1.3 I2V mode for cinematic landscape animations
-- **`animate_diff-i2v-landscape.md.json`** — AnimateDiff + IPAdapter fallback (easier setup)
-
-**Running an I2V workflow:**
-```bash
-# WanVideo I2V Landscape Animation
-python3 scripts/run_workflow.py \
-  --workflow workflows/wanvideo-i2v-landscape.md.json \
-  --mode i2v \
-  --image ./my_landscape_photo.jpg \
-  --args '{\"prompt\": \"cinematic landscape, slow pan, atmospheric lighting\", \"seed\": -1}' \
-  --host http://10.88.1.168:8190 \
-  --output-dir ./outputs
-
-# AnimateDiff I2V (fallback — easier to set up)
-python3 scripts/run_workflow.py \
-  --workflow workflows/animate_diff-i2v-landscape.md.json \
-  --mode i2v \
-  --image ./my_landscape_photo.jpg \
-  --args '{\"prompt\": \"peaceful landscape, gentle wind movement\", \"seed\": -1}' \
-  --host http://10.88.1.168:8190 \
-  --output-dir ./outputs
-
-# Auto-detect mode from workflow content
-python3 scripts/run_workflow.py \
-  --workflow workflows/wanvideo-i2v-landscape.md.json \
-  --image ~/Pictures/landscape.jpg \
-  --args '{\"prompt\": \"sunset over mountains\", \"steps\": 25}' \
-  --output-dir ./outputs
-```
-
-**Key parameters for landscape animations:**
-| Parameter | Default | Notes |
-|-----------|---------|-------|
-| `width` | 832 | Resolution width (keep even numbers) |
-| `height` | 480 | Resolution height — keep aspect ratio like the photo |
-| `length` | 81 | Frame count (~3.5s at 24fps). More frames = longer video but higher VRAM |
-| `steps` | 30 | Quality vs speed tradeoff; 20-40 is typical for I2V |
-| `cfg` | 4.5 | Classifier-free guidance — lower values are more creative |
-| `prompt` | (see defaults) | Describe the desired motion, not just the scene |
-
-**WanVideo vs AnimateDiff:**
-- **WanVideo**: Better quality, true I2V semantics, requires fp8 checkpoint + SigLIP vision encoder
-- **AnimateDiff**: Easier setup with existing SDXL models, uses IPAdapter for reference image conditioning, may produce more stylized results
-
-**Tips for landscape animations:**
-1. Use high-resolution source photos (at least 832x480) — upscaling first helps
-2. Keep `length` under 81 frames for VRAM safety on RTX 3070
-3. Write motion descriptions: "slow pan right", "gentle clouds drifting", "breeze through trees"
-4. Negative prompts should avoid: "static, frozen, still image, no movement"
-
-**Model requirements (WanVideo I2V):**
-- `wanvideo_i2v_14b_fp8` — in `models/diffusion_models/` (~6GB)
-- `siglip_vision_transformer_patch16_384` — in `models/clip_vision/` (~1.5GB)  
-- WanVAE model — in `models/vae/`
-
-**Model requirements (AnimateDiff I2V):**
-- SDXL checkpoint in `models/checkpoints/`
-- AnimateDiff motion module (`mm_sdxl_v10_beta.safetensors`) in `models/animatediff_models/`
-- IPAdapter model in `models/ipadapter/`
 
 ## Queue & System Management
 

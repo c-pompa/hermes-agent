@@ -583,12 +583,6 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--input-image", action="append", default=[],
                    help="Upload local image before running. Format: `name=path` or `path`. "
                         "The `name` becomes the value injected into the matching schema parameter.")
-    p.add_argument("--image", default=None,
-                   help="Primary reference image for I2V workflows. Uploaded and directly "
-                        "injected into a LoadImage node (bypasses schema injection).")
-    p.add_argument("--mode", choices=["auto", "i2v", "t2v"], default="auto",
-                   help="Workflow mode: 'auto' detects from workflow content, 'i2v' forces image-to-video, "
-                        "'t2v' forces text-to-video (default: auto)")
     p.add_argument("--randomize-seed", action="store_true",
                    help="If schema has a 'seed' parameter and --args didn't set one, randomize it")
     p.add_argument("--ws", action="store_true",
@@ -682,70 +676,6 @@ def main(argv: list[str] | None = None) -> int:
         if param_name not in user_args:
             user_args[param_name] = uploaded_name
 
-    # ---- I2V mode: upload reference image and inject into LoadImage node ----
-    i2v_image_ref: dict | None = None
-    if args.image:
-        img_path = Path(args.image).expanduser()
-        if not img_path.exists():
-            emit_json({"error": f"Reference image not found: {args.image}"})
-            return 1
-        try:
-            i2v_image_ref = runner.upload_image(img_path, image_type="input")
-        except Exception as e:
-            emit_json({"error": f"Reference image upload failed: {e}"})
-            return 1
-        uploaded_img_name = i2v_image_ref.get("name") or img_path.name
-        
-        # If mode is auto, detect I2V by checking for LoadImage node or WanImageToVideo/HunyuanImgToVideo in workflow
-        if args.mode == "auto":
-            has_loadimage = any(
-                n.get("class_type") == "LoadImage" for n in workflow.values()
-                if isinstance(n, dict) and isinstance(n.get("class_type"), str)
-            )
-            has_i2v_node = any(
-                n.get("class_type") in ("WanImageToVideo", "HunyuanImgToVideo") 
-                for n in workflow.values()
-                if isinstance(n, dict) and isinstance(n.get("class_type"), str)
-            )
-            if not has_loadimage and not has_i2v_node:
-                emit_json({"error": "No LoadImage or I2V node found — use --mode i2v or provide a different workflow"})
-                return 1
-        
-        # Inject the uploaded image filename into ALL LoadImage nodes (I2V workflows have one)
-        for nid, node in list(workflow.items()):
-            if isinstance(node, dict) and node.get("class_type") == "LoadImage":
-                img_field = "filename" if "filename" in node["inputs"] else "image"
-                node["inputs"][img_field] = uploaded_img_name
-                log(f"I2V: injected reference image '{uploaded_img_name}' into {nid} (LoadImage)")
-
-        # For WanVideo/Hunyuan I2V workflows, inject the start_image directly
-        for nid, node in list(workflow.items()):
-            class_type = node.get("class_type", "") if isinstance(node, dict) else ""
-            if class_type in ("WanImageToVideo", "HunyuanImgToVideo"):
-                # The start_image input expects [node_id, 0] format — find the LoadImage node first
-                loadimage_nid = None
-                for other_nid, other_node in workflow.items():
-                    if isinstance(other_node, dict) and other_node.get("class_type") == "LoadImage":
-                        loadimage_nid = other_nid
-                        break
-                # If no LoadImage node exists (pure Wan I2V), create a synthetic reference
-                if loadimage_nid:
-                    # Update the existing LoadImage to use our uploaded image, then inject its ref
-                    for inner_nid, inner_node in list(workflow.items()):
-                        if isinstance(inner_node, dict) and inner_node.get("class_type") == "LoadImage":
-                            img_field = "filename" if "filename" in inner_node["inputs"] else "image"
-                            inner_node["inputs"][img_field] = uploaded_img_name
-                    node["inputs"]["start_image"] = [loadimage_nid, 0]
-                else:
-                    # No LoadImage found — inject the image name directly into start_image field
-                    if "start_image" in node["inputs"]:
-                        # Wan I2V may accept string filename or [ref, port] tuple
-                        # Try as a direct reference first (some custom nodes support this)
-                        log(f"I2V: injecting '{uploaded_img_name}' as start_image ref for {nid} ({class_type})")
-                    else:
-                        node["inputs"]["start_image"] = uploaded_img_name
-                log(f"I2V: connected reference image to {nid} ({class_type})")
-
     # ---- Inject params ----
     schema = load_schema(args.schema, workflow)
     workflow, inj_warnings = inject_params(
@@ -754,10 +684,6 @@ def main(argv: list[str] | None = None) -> int:
     warnings = upload_warnings + inj_warnings
     for w in warnings:
         log(f"WARN: {w}")
-
-    # ---- Filter non-node metadata before submission ----
-    # Strip keys like _meta_default_args, mode, title that aren't actual nodes
-    workflow = {k: v for k, v in workflow.items() if isinstance(v, dict) and 'class_type' in v}
 
     # ---- Submit ----
     submit_resp = runner.submit(workflow)

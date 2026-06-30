@@ -14,58 +14,6 @@ cloud access to) the listed models.
 | `upscale_4x.json` | Standalone 4× ESRGAN upscale | `4x-UltraSharp.pth` (or any upscaler) | 4 GB |
 | `animatediff_video.json` | AnimateDiff text-to-video (16 frames) | SD1.5 checkpoint, `mm_sd_v15_v2.ckpt` motion module | 8 GB |
 | `wan_video_t2v.json` | Wan 2.x text-to-video (~33 frames) | `wan2.2_t2v_1.3B_fp16.safetensors`, `umt5_xxl_fp16.safetensors`, `wan_2.1_vae.safetensors` | 24 GB |
-| **`wanvideo-i2v-landscape.md.json`** | WanVideo image-to-video landscape animation | `wanvideo_i2v_14b_fp8`, `siglip_vision_transformer_patch16_384`, `wanvae_bf16` | 24 GB (fp8) |
-| **`animate_diff-i2v-landscape.md.json`** | AnimateDiff + IPAdapter landscape animation | SDXL checkpoint, `mm_sdxl_v10_beta.safetensors`, `ip-adapter-plus-face_sd15.bin` or SDXL equivalent | 16 GB |
-
-## Image-to-Video (I2V) Workflows
-
-Turn a static landscape photo into a short animated clip. Two options available:
-
-### WanVideo I2V (highest quality)
-
-Uses the WanVideo 14B model in image-to-video mode with SigLIP vision encoding for faithful reference adherence.
-
-```bash
-# Basic usage
-python3 ../scripts/run_workflow.py \
-  --workflow wanvideo-i2v-landscape.md.json \
-  --mode i2v \
-  --image ~/Pictures/landscape.jpg \
-  --args '{\"prompt\": \"cinematic landscape, slow pan right, atmospheric lighting\", \"seed\": -1}' \
-  --host http://10.88.1.168:8190 \
-  --output-dir ./outputs
-
-# Auto-detect mode from workflow (requires LoadImage node present)
-python3 ../scripts/run_workflow.py \
-  --workflow wanvideo-i2v-landscape.md.json \
-  --image ~/Pictures/landscape.jpg \
-  --args '{\"prompt\": \"sunset over mountains, gentle clouds\", \"steps\": 25}' \
-  --host http://10.88.1.168:8190 \
-  --output-dir ./outputs
-```
-
-**Key parameters:** `width` (832), `height` (480), `length` (81 frames / ~3.5s), `steps` (25-30), `cfg` (4.5)
-
-### AnimateDiff I2V (easier setup)
-
-Uses SDXL + IPAdapter for reference conditioning with AnimateDiff motion layers. Easier to set up if you already have SDXL models installed.
-
-```bash
-python3 ../scripts/run_workflow.py \
-  --workflow animate_diff-i2v-landscape.md.json \
-  --mode i2v \
-  --image ~/Pictures/landscape.jpg \
-  --args '{\"prompt\": \"peaceful landscape, gentle wind movement through trees\", \"seed\": -1}' \
-  --host http://10.88.1.168:8190 \
-  --output-dir ./outputs
-```
-
-### Tips for better results
-
-1. **Source image quality:** Use high-resolution photos (at least 832×480). Upscale first if needed.
-2. **Motion descriptions:** Be specific about the kind of motion: "slow pan right", "gentle clouds drifting", "breeze through trees"
-3. **Frame count:** Keep `length` under 81 for RTX 3070 VRAM safety; higher values = longer videos but more memory pressure
-4. **Negative prompts:** Avoid "static, frozen, still image, no movement" — let the model know you want animation
 
 ## Quick start
 
