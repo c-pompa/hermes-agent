@@ -1,0 +1,31 @@
+{
+  "title": "AnimateDiff Image-to-Video Landscape Animation",
+  "description": "Generates a short landscape animation from a reference image using AnimateDiff + IPAdapter (easier setup).",
+  "mode": "i2v",
+  "_meta_default_args": {
+    "prompt": "peaceful landscape with gentle wind movement, clouds drifting slowly, natural lighting",
+    "negative_prompt": "blurry, distorted, low quality, artifacts, static image",
+    "steps": 20,
+    "cfg": 7.5,
+    "seed": -1,
+    "frame_rate": 12,
+    "motion_strength": 1.0,
+    "ip_adapter_weight": 0.8
+  },
+  "_meta_requirements": {
+    "models": [
+      {
+        "name": "sdxl_v0.9",
+        "folder": "checkpoints"
+      },
+      {
+        "name": "mm_sdxl_v10_beta",
+        "folder": "animatediff_models"
+      },
+      {
+        "name": "ip_adapter_plus_face_sd15",
+        "folder": "ipadapter"
+      }
+    ]
+  }
+}

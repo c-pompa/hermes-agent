@@ -1,6 +1,4 @@
 {
-  "title": "Wan 2.2 Image-to-Video Landscape (Local)",
-  "mode": "i2v",
   "1": {
     "class_type": "LoadImage",
     "inputs": {
@@ -32,12 +30,5 @@
       "format": "mp4",
       "codec": "h264"
     }
-  },
-  "_meta_default_args": {
-    "prompt": "",
-    "negative_prompt": "",
-    "seed": -1,
-    "duration": 3,
-    "resolution": ""
   }
 }

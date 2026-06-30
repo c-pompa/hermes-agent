@@ -27,12 +27,25 @@ Remote naming differs per machine:
 - `skills/creative/i2v-landscape-animation/` — I2V landscape skill + the
   `i2v_landscape.py` convenience script.
 
-### Skills — modifications layered on an upstream skill ⚠
-- `skills/creative/comfyui/` (exists upstream) — our additions:
+### Skills — additive files on an upstream skill (reconciled 2026-06-30)
+- `skills/creative/comfyui/` (exists upstream) — our **additive-only** files:
   - I2V landscape workflows: `animate_diff-i2v-landscape.md.json`,
-    `wanvideo-i2v-landscape.md.json`
-  - `scripts/run_workflow.py` extensions, `scripts/_common.py` tweak
-  - metadata filter + I2V workflow corrections, port fix in `i2v_landscape.py`
+    `wanvideo-i2v-landscape.md.json` (pure ComfyUI API-format)
+  - Their metadata sidecars: `animate_diff-i2v-landscape.meta.json`,
+    `wanvideo-i2v-landscape.meta.json` (title/description/requirements/defaults)
+  - `scripts/i2v_landscape.py` — convenience wrapper around upstream
+    `run_workflow.py` (uses `--input-image`; no upstream-script edits needed)
+- **Reconciliation note (2026-06-30):** our old fork patched `run_workflow.py`
+  (`--image`/`--mode` + LoadImage/start_image injection) and `_common.py`
+  (`unwrap_workflow` metadata strip). The v2026.6.19 upgrade reverted those to
+  upstream. Verified upstream now covers the need natively: `extract_schema`
+  exposes the `LoadImage` `image` input as an `image` param, and
+  `i2v_landscape.py`'s bare `--input-image <path>` maps to it. The only break
+  was that upstream's `submit()` no longer strips non-node top-level keys, so
+  our `.md.json` metadata (`title`/`mode`/`_meta_*`) would be rejected by
+  ComfyUI. Fix: stripped that metadata from the workflow JSONs (now pure
+  API-format) into `.meta.json` sidecars — **no upstream-script edits, delta
+  stays purely additive.** Nothing in code reads the old `_meta_*` keys anymore.
 
 ### Infra / repo config — only ours
 - `.gitlab-ci.yml` — homelab GitLab CI (project-scoped runner).

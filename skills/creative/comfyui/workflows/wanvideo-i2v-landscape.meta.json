@@ -1,0 +1,11 @@
+{
+  "title": "Wan 2.2 Image-to-Video Landscape (Local)",
+  "mode": "i2v",
+  "_meta_default_args": {
+    "prompt": "",
+    "negative_prompt": "",
+    "seed": -1,
+    "duration": 3,
+    "resolution": ""
+  }
+}
