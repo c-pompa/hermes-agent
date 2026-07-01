@@ -1,11 +1,38 @@
 {
-  "title": "Wan 2.2 Image-to-Video Landscape (Local)",
-  "mode": "i2v",
+  "title": "Wan 2.2 TI2V 5B Image-to-Video Landscape (Local, desktop2)",
+  "description": "Animates a reference image into a short landscape clip using the native ComfyUI Wan 2.2 TI2V 5B model. Proven end-to-end on desktop2 (RTX 3080 10GB).",
+  "_meta_requirements": {
+    "models": [
+      {
+        "name": "wan2.2_ti2v_5B_fp16.safetensors",
+        "folder": "diffusion_models"
+      },
+      {
+        "name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        "folder": "text_encoders"
+      },
+      {
+        "name": "wan2.2_vae.safetensors",
+        "folder": "vae"
+      }
+    ]
+  },
   "_meta_default_args": {
     "prompt": "",
     "negative_prompt": "",
     "seed": -1,
-    "duration": 3,
-    "resolution": ""
+    "width": 640,
+    "height": 384,
+    "length": 17,
+    "steps": 20,
+    "cfg": 5.0
+  },
+  "_meta_operational_notes": {
+    "gpu": "RTX 3080 10GB VRAM; host desktop2 has only 15.8GB system RAM, WSL2 capped at 12GB.",
+    "ram_constraint": "Wan 2.2 5B (VAE 1.3GB + umt5 text encoder 6.4GB + UNet) + sampling activations exceed 12GB. Loading uses fp8 UNet + tiled VAE decode to fit.",
+    "free_ram_recipe": "Before a render, stop other containers to free RAM (biggest: gitlab ~2.3GB): `docker stop gitlab homeassistant grafana tradepath-app tradepath-minio tradepath-cache tradepath-db`; restart them with `docker start ...` after.",
+    "tested_working": "640x384, length 17, 20 steps, fp8, tiled decode, ALL non-essential containers stopped -> rendered wan22_i2v_landscape_00001_.mp4 (h264, 17 frames) 2026-06-30.",
+    "larger_renders": "832x480 or longer clips need more RAM: either free more (only caddy+comfyui running) or raise WSL2 memory/swap in %UserProfile%\\.wslconfig (host is 16GB, so lean on swap).",
+    "i2v_landscape_defaults": "scripts/i2v_landscape.py defaults to 832x480/3.5s which exceeds this box; for the wanvideo path pass e.g. `--width 640 --height 384 --duration 0.7s`."
   }
 }
