@@ -21,6 +21,20 @@ Remote naming differs per machine:
 
 ## Fork delta (re-apply after each upstream sync)
 
+### Core code patches (⚠ upstream-owned files — check first on every sync)
+- `agent/moa_loop.py` — **MoA reference multimodal-content fix (2026-07-02).**
+  Added `_content_text()` and routed `_reference_messages()` through it so a
+  user turn sent as OpenAI **list/multimodal content** (`[{"type":"text",
+  "text":...}]`) is flattened to its text instead of being dropped to `""`.
+  Without it, every MoA *reference* (proposer) call received an **empty** user
+  message and LM Studio's strict chat templates 400'd with
+  `"No user query found in messages."`, breaking `/moa` and MoA-as-primary
+  entirely (proposers never ran). Upstream still has the `content if
+  isinstance(content, str) else ""` line verbatim as of upstream `88d1d6206`,
+  so **this patch must be re-applied on every upstream snapshot** until upstream
+  fixes it. Verified: `_reference_messages([{system},{user:[{text:"hi"}]}])`
+  now yields a non-empty user turn.
+
 ### Skills — only ours (drop-in, low conflict risk)
 - `skills/mlops/models/comfyui/` — remote ComfyUI skill: `queue_workflow.py`,
   `upload_model.sh`, `SKILL.md`, plus realistic + anime example workflows.

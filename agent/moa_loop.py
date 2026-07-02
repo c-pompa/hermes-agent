@@ -246,6 +246,36 @@ def _render_tool_calls(tool_calls: Any) -> str:
     return "\n".join(lines)
 
 
+def _content_text(content: Any) -> str:
+    """Flatten OpenAI message content to plain text.
+
+    ``content`` may be a plain string OR the multimodal list form
+    ``[{"type": "text", "text": ...}, ...]`` that chat clients send. The
+    advisory/reference view is text-only, so extract and join the text parts
+    (dropping non-text parts like images). Returns "" for anything unrecognized.
+
+    HOMELAB FIX (not upstream): the previous ``content if isinstance(content,
+    str) else ""`` dropped list content entirely, so a multimodal user turn
+    became an EMPTY user message and strict chat templates 400'd with
+    "No user query found in messages." — breaking every MoA reference call.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for p in content:
+            if isinstance(p, dict):
+                t = p.get("text")
+                if isinstance(t, str):
+                    parts.append(t)
+                elif p.get("type") == "text" and isinstance(p.get("content"), str):
+                    parts.append(p["content"])
+            elif isinstance(p, str):
+                parts.append(p)
+        return "\n".join(parts)
+    return ""
+
+
 def _reference_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Build an advisory view of the conversation for reference models.
 
@@ -289,7 +319,7 @@ def _reference_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for msg in messages:
         role = msg.get("role")
         content = msg.get("content")
-        text = content if isinstance(content, str) else ""
+        text = _content_text(content)
 
         if role == "system":
             continue
@@ -336,8 +366,10 @@ def _reference_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if last_user_content is not None:
             return [{"role": "user", "content": last_user_content}]
         for msg in reversed(messages):
-            if msg.get("role") == "user" and isinstance(msg.get("content"), str):
-                return [{"role": "user", "content": msg["content"]}]
+            if msg.get("role") == "user":
+                t = _content_text(msg.get("content"))
+                if t.strip():
+                    return [{"role": "user", "content": t}]
     return rendered
 
 
