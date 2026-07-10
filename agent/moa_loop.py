@@ -212,13 +212,13 @@ def _run_reference(
 
     label = _slot_label(slot)
     runtime = _slot_runtime(slot)
+    _call_started = time.monotonic()
     try:
         # Prepend the advisory-role system prompt so the reference understands
         # it is analyzing state for an aggregator, not acting on the task. The
         # trimmed view (_reference_messages) already strips the agent's own
         # system prompt, so this is the only system message the reference sees.
         messages = [{"role": "system", "content": _REFERENCE_SYSTEM_PROMPT}, *ref_messages]
-        _call_started = time.monotonic()
         response = call_llm(
             task="moa_reference",
             messages=messages,
@@ -281,6 +281,7 @@ def _run_reference(
             model=slot.get("model"),
             provider=runtime.get("provider") or slot.get("provider"),
             temperature=temperature,
+            duration_s=round(time.monotonic() - _call_started, 3),
         )
 
 
