@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -55,6 +56,7 @@ class _RefAccounting:
         "model",
         "provider",
         "temperature",
+        "duration_s",
     )
 
     def __init__(
@@ -69,6 +71,7 @@ class _RefAccounting:
         model: str | None = None,
         provider: str | None = None,
         temperature: Any = None,
+        duration_s: float | None = None,
     ):
         self.usage = usage
         self.cost_usd = cost_usd
@@ -79,6 +82,7 @@ class _RefAccounting:
         self.model = model
         self.provider = provider
         self.temperature = temperature
+        self.duration_s = duration_s
 
 # Per-tool-result character budget for the advisory reference view. Tool
 # results can be huge (a full diff, a 5000-line file dump); replaying them
@@ -214,6 +218,7 @@ def _run_reference(
         # trimmed view (_reference_messages) already strips the agent's own
         # system prompt, so this is the only system message the reference sees.
         messages = [{"role": "system", "content": _REFERENCE_SYSTEM_PROMPT}, *ref_messages]
+        _call_started = time.monotonic()
         response = call_llm(
             task="moa_reference",
             messages=messages,
@@ -221,6 +226,7 @@ def _run_reference(
             max_tokens=max_tokens,
             **runtime,
         )
+        _call_duration = round(time.monotonic() - _call_started, 3)
         usage = CanonicalUsage()
         raw_usage = getattr(response, "usage", None)
         if raw_usage:
@@ -263,6 +269,7 @@ def _run_reference(
             model=slot.get("model"),
             provider=runtime.get("provider") or slot.get("provider"),
             temperature=temperature,
+            duration_s=_call_duration,
         )
         return label, _output_text, acct
     except Exception as exc:

@@ -38,6 +38,16 @@ Remote naming differs per machine:
   `_current_max_iterations()` calls (pre-fix it flipped to `docker`).
   Check on every upstream snapshot until upstream fixes the reload to
   re-assert the full terminal bridge.
+- `agent/moa_loop.py` + `agent/moa_trace.py` — **MoA per-reference call
+  timing (2026-07-10).** `_RefAccounting` gains a `duration_s` slot,
+  `_run_reference()` wraps its `call_llm` in a `time.monotonic()` timer, and
+  `moa_trace._slot_trace()` writes `duration_s` into each reference's trace
+  record. With `moa.save_traces: true` this gives per-proposer wall-clock
+  duration (→ tokens/sec) per MoA turn in
+  `~/.hermes/moa-traces/<session_id>.jsonl`, consumed by the metrics
+  dashboard's forwarder. The aggregator's acting call needs no patch — it is
+  already timed by the `post_api_request` hook (`api_duration`). Small,
+  additive; re-apply on upstream sync alongside the multimodal fix below.
 - `agent/moa_loop.py` — **MoA reference multimodal-content fix (2026-07-02).**
   Added `_content_text()` and routed `_reference_messages()` through it so a
   user turn sent as OpenAI **list/multimodal content** (`[{"type":"text",
