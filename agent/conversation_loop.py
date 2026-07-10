@@ -946,6 +946,22 @@ def run_conversation(
         # the OpenAI SDK. Sanitizing here prevents the 3-retry cycle.
         _sanitize_messages_surrogates(api_messages)
 
+        # Guarantee the outbound payload opens with a genuine user turn.
+        # Runs last — after prefill insertion, thinking-only drops, and tool
+        # sanitization have settled the leading structure — on the API copy
+        # only, so persisted history is untouched. A resumed lineage whose
+        # history begins with a context-compaction summary merged into a
+        # leading assistant(tool_calls) turn otherwise trips OpenAI-compatible
+        # Qwen-derived chat templates (LM Studio / LMLink: "No user query found
+        # in messages.") and Anthropic's non-user-leading rejection. No-op on
+        # well-formed payloads.
+        from agent.agent_runtime_helpers import ensure_user_leads_api_messages
+        if ensure_user_leads_api_messages(api_messages):
+            request_logger.info(
+                "Inserted leading user bridge to keep payload well-formed (session=%s)",
+                agent.session_id or "-",
+            )
+
         # Calculate approximate request size for logging
         total_chars = sum(len(str(msg)) for msg in api_messages)
         approx_tokens = estimate_messages_tokens_rough(api_messages)
