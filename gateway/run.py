@@ -1277,8 +1277,10 @@ def _reload_runtime_env_preserving_config_authority() -> None:
 
     Gateway processes are long-lived, so per-turn code reloads ~/.hermes/.env to
     pick up rotated API keys. config.yaml remains authoritative for agent budget
-    settings such as agent.max_turns; otherwise a stale HERMES_MAX_ITERATIONS in
-    .env can replace the startup bridge on later turns.
+    settings such as agent.max_turns and for the terminal.* section; otherwise a
+    stale HERMES_MAX_ITERATIONS or TERMINAL_ENV in .env can replace the startup
+    bridge on later turns (e.g. sessions flipping to backend "docker" while
+    config.yaml says "local").
 
     In multiplex mode this is a NO-OP for the credential reload: secrets come
     from the per-turn ``set_secret_scope`` (installed by ``_profile_runtime_scope``)
@@ -1299,6 +1301,10 @@ def _reload_runtime_env_preserving_config_authority() -> None:
         project_env=Path(__file__).resolve().parents[1] / '.env',
     )
     _bridge_max_turns_from_config(_hermes_home)
+    # Re-assert config.yaml's terminal settings: the .env reload above runs
+    # with override=True, so a stale TERMINAL_* line in .env would otherwise
+    # clobber the startup bridge on every turn.
+    _bridge_terminal_env_from_config(_hermes_home)
 
 
 def _bridge_max_turns_from_config(home: "Path") -> None:
@@ -1327,6 +1333,97 @@ def _bridge_max_turns_from_config(home: "Path") -> None:
     agent_cfg = cfg.get("agent", {})
     if isinstance(agent_cfg, dict) and "max_turns" in agent_cfg:
         os.environ["HERMES_MAX_ITERATIONS"] = str(agent_cfg["max_turns"])
+
+
+# Map of config.yaml terminal.* keys → the TERMINAL_* env vars that
+# tools/terminal_tool.py actually reads. Shared by the startup config bridge
+# below and the per-turn re-bridge in _bridge_terminal_env_from_config().
+_TERMINAL_CONFIG_ENV_MAP = {
+    "backend": "TERMINAL_ENV",
+    "cwd": "TERMINAL_CWD",
+    "timeout": "TERMINAL_TIMEOUT",
+    "home_mode": "TERMINAL_HOME_MODE",
+    "lifetime_seconds": "TERMINAL_LIFETIME_SECONDS",
+    "docker_image": "TERMINAL_DOCKER_IMAGE",
+    "docker_forward_env": "TERMINAL_DOCKER_FORWARD_ENV",
+    "singularity_image": "TERMINAL_SINGULARITY_IMAGE",
+    "modal_image": "TERMINAL_MODAL_IMAGE",
+    "daytona_image": "TERMINAL_DAYTONA_IMAGE",
+    "ssh_host": "TERMINAL_SSH_HOST",
+    "ssh_user": "TERMINAL_SSH_USER",
+    "ssh_port": "TERMINAL_SSH_PORT",
+    "ssh_key": "TERMINAL_SSH_KEY",
+    "container_cpu": "TERMINAL_CONTAINER_CPU",
+    "container_memory": "TERMINAL_CONTAINER_MEMORY",
+    "container_disk": "TERMINAL_CONTAINER_DISK",
+    "container_persistent": "TERMINAL_CONTAINER_PERSISTENT",
+    "docker_volumes": "TERMINAL_DOCKER_VOLUMES",
+    "docker_env": "TERMINAL_DOCKER_ENV",
+    "docker_extra_args": "TERMINAL_DOCKER_EXTRA_ARGS",
+    "docker_mount_cwd_to_workspace": "TERMINAL_DOCKER_MOUNT_CWD_TO_WORKSPACE",
+    "docker_run_as_host_user": "TERMINAL_DOCKER_RUN_AS_HOST_USER",
+    "docker_persist_across_processes": "TERMINAL_DOCKER_PERSIST_ACROSS_PROCESSES",
+    "docker_orphan_reaper": "TERMINAL_DOCKER_ORPHAN_REAPER",
+    "sandbox_dir": "TERMINAL_SANDBOX_DIR",
+    "persistent_shell": "TERMINAL_PERSISTENT_SHELL",
+}
+
+
+def _bridge_terminal_env_from_config(home: "Path", cfg: dict | None = None) -> None:
+    """Bridge config.yaml's ``terminal`` section into TERMINAL_* env vars.
+
+    config.yaml is authoritative for terminal settings — this overwrites any
+    value already present in os.environ (e.g. a stale TERMINAL_ENV=docker left
+    in .env from an old setup). Called from the startup config bridge AND from
+    ``_reload_runtime_env_preserving_config_authority``: the per-turn
+    ``load_hermes_dotenv`` reloads .env with override=True, so without this
+    re-bridge a stale terminal value in .env silently shadows config.yaml
+    again after the first turn (observed as sessions reporting backend
+    "docker" while config.yaml says ``terminal.backend: local``).
+
+    Pass ``cfg`` when the caller already holds the expanded/managed-overlaid
+    config (startup bridge); otherwise config.yaml is loaded fresh. Fail-open:
+    any load error leaves the environment untouched.
+    """
+    if cfg is None:
+        config_path = home / 'config.yaml'
+        if not config_path.exists():
+            return
+        try:
+            import yaml as _yaml
+            with open(config_path, encoding="utf-8") as f:
+                cfg = _yaml.safe_load(f) or {}
+            from hermes_cli.config import _expand_env_vars
+            cfg = _expand_env_vars(cfg)
+            try:
+                from hermes_cli import managed_scope
+                cfg = managed_scope.apply_managed_overlay(cfg)
+            except Exception:
+                pass
+        except Exception:
+            return
+
+    terminal_cfg = cfg.get("terminal", {})
+    if not (terminal_cfg and isinstance(terminal_cfg, dict)):
+        return
+    for cfg_key, env_var in _TERMINAL_CONFIG_ENV_MAP.items():
+        if cfg_key not in terminal_cfg:
+            continue
+        val = terminal_cfg[cfg_key]
+        # Skip cwd placeholder values (".", "auto", "cwd") — the
+        # gateway resolves these to Path.home() later (line ~255).
+        # Writing the raw placeholder here would just be noise.
+        # Only bridge explicit absolute paths from config.yaml.
+        if cfg_key == "cwd" and str(val) in {".", "auto", "cwd"}:
+            continue
+        # Expand shell tilde in cwd so subprocess.Popen never
+        # receives a literal "~/" which the kernel rejects.
+        if cfg_key == "cwd" and isinstance(val, str):
+            val = os.path.expanduser(val)
+        if isinstance(val, (list, dict)):
+            os.environ[env_var] = json.dumps(val)
+        else:
+            os.environ[env_var] = str(val)
 
 
 def _current_max_iterations() -> int:
@@ -1433,55 +1530,10 @@ if _config_path.exists():
             if isinstance(_val, (str, int, float, bool)) and _key not in os.environ:
                 os.environ[_key] = str(_val)
         # Terminal config is nested — bridge to TERMINAL_* env vars.
-        # config.yaml overrides .env for these since it's the documented config path.
-        _terminal_cfg = _cfg.get("terminal", {})
-        if _terminal_cfg and isinstance(_terminal_cfg, dict):
-            _terminal_env_map = {
-                "backend": "TERMINAL_ENV",
-                "cwd": "TERMINAL_CWD",
-                "timeout": "TERMINAL_TIMEOUT",
-                "home_mode": "TERMINAL_HOME_MODE",
-                "lifetime_seconds": "TERMINAL_LIFETIME_SECONDS",
-                "docker_image": "TERMINAL_DOCKER_IMAGE",
-                "docker_forward_env": "TERMINAL_DOCKER_FORWARD_ENV",
-                "singularity_image": "TERMINAL_SINGULARITY_IMAGE",
-                "modal_image": "TERMINAL_MODAL_IMAGE",
-                "daytona_image": "TERMINAL_DAYTONA_IMAGE",
-                "ssh_host": "TERMINAL_SSH_HOST",
-                "ssh_user": "TERMINAL_SSH_USER",
-                "ssh_port": "TERMINAL_SSH_PORT",
-                "ssh_key": "TERMINAL_SSH_KEY",
-                "container_cpu": "TERMINAL_CONTAINER_CPU",
-                "container_memory": "TERMINAL_CONTAINER_MEMORY",
-                "container_disk": "TERMINAL_CONTAINER_DISK",
-                "container_persistent": "TERMINAL_CONTAINER_PERSISTENT",
-                "docker_volumes": "TERMINAL_DOCKER_VOLUMES",
-                "docker_env": "TERMINAL_DOCKER_ENV",
-                "docker_extra_args": "TERMINAL_DOCKER_EXTRA_ARGS",
-                "docker_mount_cwd_to_workspace": "TERMINAL_DOCKER_MOUNT_CWD_TO_WORKSPACE",
-                "docker_run_as_host_user": "TERMINAL_DOCKER_RUN_AS_HOST_USER",
-                "docker_persist_across_processes": "TERMINAL_DOCKER_PERSIST_ACROSS_PROCESSES",
-                "docker_orphan_reaper": "TERMINAL_DOCKER_ORPHAN_REAPER",
-                "sandbox_dir": "TERMINAL_SANDBOX_DIR",
-                "persistent_shell": "TERMINAL_PERSISTENT_SHELL",
-            }
-            for _cfg_key, _env_var in _terminal_env_map.items():
-                if _cfg_key in _terminal_cfg:
-                    _val = _terminal_cfg[_cfg_key]
-                    # Skip cwd placeholder values (".", "auto", "cwd") — the
-                    # gateway resolves these to Path.home() later (line ~255).
-                    # Writing the raw placeholder here would just be noise.
-                    # Only bridge explicit absolute paths from config.yaml.
-                    if _cfg_key == "cwd" and str(_val) in {".", "auto", "cwd"}:
-                        continue
-                    # Expand shell tilde in cwd so subprocess.Popen never
-                    # receives a literal "~/" which the kernel rejects.
-                    if _cfg_key == "cwd" and isinstance(_val, str):
-                        _val = os.path.expanduser(_val)
-                    if isinstance(_val, (list, dict)):
-                        os.environ[_env_var] = json.dumps(_val)
-                    else:
-                        os.environ[_env_var] = str(_val)
+        # config.yaml overrides .env for these since it's the documented config
+        # path. Shared with the per-turn .env reload, which must re-assert
+        # these after load_hermes_dotenv(override=True) re-applies .env.
+        _bridge_terminal_env_from_config(_hermes_home, _cfg)
         # Compression config is read directly from config.yaml by run_agent.py
         # and auxiliary_client.py — no env var bridging needed.
         # Auxiliary model/direct-endpoint overrides (vision, web_extract,

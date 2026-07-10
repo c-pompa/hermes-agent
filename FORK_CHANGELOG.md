@@ -22,6 +22,22 @@ Remote naming differs per machine:
 ## Fork delta (re-apply after each upstream sync)
 
 ### Core code patches (⚠ upstream-owned files — check first on every sync)
+- `gateway/run.py` — **per-turn .env reload clobbering terminal config fix
+  (2026-07-10).** `_reload_runtime_env_preserving_config_authority()` reloads
+  `~/.hermes/.env` with `override=True` every turn (via
+  `_current_max_iterations()`) but only re-bridged `agent.max_turns` — so a
+  stale `TERMINAL_ENV=docker` in `.env` silently overrode config.yaml's
+  `terminal.backend: local` after the first turn (sessions reported
+  deployment "docker" while the gateway showed "local"). Fix: hoisted the
+  startup bridge's terminal map/loop into module-level
+  `_TERMINAL_CONFIG_ENV_MAP` + `_bridge_terminal_env_from_config(home, cfg=None)`,
+  called from both the startup bridge (passing the loaded `_cfg`) and the
+  per-turn reload (loads config.yaml fresh, mirrors
+  `_bridge_max_turns_from_config`). Verified: with `.env` `TERMINAL_ENV=docker`
+  + config `backend: local`, `TERMINAL_ENV` stays `local` across
+  `_current_max_iterations()` calls (pre-fix it flipped to `docker`).
+  Check on every upstream snapshot until upstream fixes the reload to
+  re-assert the full terminal bridge.
 - `agent/moa_loop.py` — **MoA reference multimodal-content fix (2026-07-02).**
   Added `_content_text()` and routed `_reference_messages()` through it so a
   user turn sent as OpenAI **list/multimodal content** (`[{"type":"text",
