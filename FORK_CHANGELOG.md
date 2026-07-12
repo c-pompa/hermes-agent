@@ -51,8 +51,14 @@ Remote naming differs per machine:
   per-proposer wall-clock duration (→ tokens/sec) per MoA turn in
   `~/.hermes/moa-traces/<session_id>.jsonl`, consumed by the metrics
   dashboard's forwarder. The aggregator's acting call needs no patch — it is
-  already timed by the `post_api_request` hook (`api_duration`). Small,
-  additive; re-apply on upstream sync alongside the multimodal fix below.
+  already timed by the `post_api_request` hook (`api_duration`). Also
+  (2026-07-12): `moa_trace._save_moa_metrics()` writes a metrics-lite record
+  (per-proposer usage/duration/stats, NO message bodies) to
+  `<hermes_home>/metrics/moa-refs.jsonl` on EVERY MoA turn, **independent of
+  `moa.save_traces`** — preset editors (`hermes moa` / dashboard MoA panel)
+  rewrite the `moa:` block and drop `save_traces`, which used to silently
+  kill proposer observability. Small, additive; re-apply on upstream sync
+  alongside the multimodal fix below.
 - `agent/moa_loop.py` — **MoA reference multimodal-content fix (2026-07-02).**
   Added `_content_text()` and routed `_reference_messages()` through it so a
   user turn sent as OpenAI **list/multimodal content** (`[{"type":"text",

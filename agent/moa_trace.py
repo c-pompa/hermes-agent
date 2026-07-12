@@ -96,6 +96,49 @@ def _slot_trace(acct: Any, label: str) -> dict[str, Any]:
     }
 
 
+def _save_moa_metrics(
+    *,
+    session_id: Optional[str],
+    preset_name: str,
+    reference_outputs: list[tuple[str, str, Any]],
+    aggregator_label: str,
+    aggregator_model: Optional[str],
+    aggregator_provider: Optional[str],
+) -> None:
+    """Append a metrics-lite MoA turn record (NO message bodies) to
+    ``<hermes_home>/metrics/moa-refs.jsonl`` — ALWAYS, independent of
+    ``moa.save_traces``. Per-proposer tokens/duration/stats feed the metrics
+    dashboard; keeping this ungated means preset editors that rewrite the
+    ``moa:`` config block (and drop ``save_traces``) can't silently kill
+    observability. Best-effort: never breaks a turn.
+    """
+    try:
+        refs = []
+        for label, _text, acct in reference_outputs:
+            full = _slot_trace(acct, label)
+            refs.append({k: full.get(k) for k in (
+                "label", "model", "provider", "usage",
+                "cost_usd", "duration_s", "stats",
+            )})
+        record = {
+            "ts": time.time(),
+            "session_id": session_id,
+            "preset": preset_name,
+            "references": refs,
+            "aggregator": {
+                "label": aggregator_label,
+                "model": aggregator_model,
+                "provider": aggregator_provider,
+            },
+        }
+        base = get_hermes_home() / "metrics"
+        base.mkdir(parents=True, exist_ok=True)
+        with (base / "moa-refs.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+    except Exception as exc:  # pragma: no cover - metrics must never break a turn
+        logger.debug("MoA metrics write failed (session=%s): %s", session_id, exc)
+
+
 def save_moa_turn(
     *,
     session_id: Optional[str],
@@ -122,6 +165,14 @@ def save_moa_turn(
     that resolved text was unavailable, it falls back to None and the record
     points at the session store via ``output_location``.
     """
+    _save_moa_metrics(
+        session_id=session_id,
+        preset_name=preset_name,
+        reference_outputs=reference_outputs,
+        aggregator_label=aggregator_label,
+        aggregator_model=aggregator_model,
+        aggregator_provider=aggregator_provider,
+    )
     base = _traces_enabled_and_dir()
     if base is None:
         return
