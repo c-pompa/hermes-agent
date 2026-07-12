@@ -38,12 +38,17 @@ Remote naming differs per machine:
   `_current_max_iterations()` calls (pre-fix it flipped to `docker`).
   Check on every upstream snapshot until upstream fixes the reload to
   re-assert the full terminal bridge.
-- `agent/moa_loop.py` + `agent/moa_trace.py` — **MoA per-reference call
-  timing (2026-07-10).** `_RefAccounting` gains a `duration_s` slot,
-  `_run_reference()` wraps its `call_llm` in a `time.monotonic()` timer, and
-  `moa_trace._slot_trace()` writes `duration_s` into each reference's trace
-  record. With `moa.save_traces: true` this gives per-proposer wall-clock
-  duration (→ tokens/sec) per MoA turn in
+- `agent/moa_loop.py` + `agent/moa_trace.py` + `run_agent.py` — **MoA
+  per-reference call timing + provider stats passthrough (2026-07-10/12).**
+  `_RefAccounting` gains `duration_s` and `stats` slots, `_run_reference()`
+  wraps its `call_llm` in a `time.monotonic()` timer and captures a non-empty
+  response-root `stats` dict (LM Studio: tokens/sec, TTFT, speculative-draft
+  counts — empty `{}` in 0.4.x REST but populated in some builds), and
+  `moa_trace._slot_trace()` writes both into each reference's trace record.
+  `run_agent._usage_summary_for_api_request_hook()` likewise attaches a
+  non-empty `response.stats` as `summary["stats"]` so the `post_api_request`
+  hook payload carries it. With `moa.save_traces: true` this gives
+  per-proposer wall-clock duration (→ tokens/sec) per MoA turn in
   `~/.hermes/moa-traces/<session_id>.jsonl`, consumed by the metrics
   dashboard's forwarder. The aggregator's acting call needs no patch — it is
   already timed by the `post_api_request` hook (`api_duration`). Small,

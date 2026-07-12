@@ -2220,6 +2220,16 @@ class AIAgent:
         summary.pop("raw_usage", None)
         summary["prompt_tokens"] = cu.prompt_tokens
         summary["total_tokens"] = cu.total_tokens
+        # Provider-side generation stats (LM Studio attaches a response-root
+        # `stats` object — tokens/sec, TTFT, speculative-draft counts — when
+        # its API populates it). Passed through verbatim for observability
+        # plugins/hooks; omitted when absent or empty.
+        try:
+            _stats = getattr(response, "stats", None)
+            if isinstance(_stats, dict) and _stats:
+                summary["stats"] = _stats
+        except Exception:
+            pass
         return summary
 
     @staticmethod

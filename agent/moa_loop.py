@@ -57,6 +57,7 @@ class _RefAccounting:
         "provider",
         "temperature",
         "duration_s",
+        "stats",
     )
 
     def __init__(
@@ -72,6 +73,7 @@ class _RefAccounting:
         provider: str | None = None,
         temperature: Any = None,
         duration_s: float | None = None,
+        stats: Any = None,
     ):
         self.usage = usage
         self.cost_usd = cost_usd
@@ -83,6 +85,7 @@ class _RefAccounting:
         self.provider = provider
         self.temperature = temperature
         self.duration_s = duration_s
+        self.stats = stats
 
 # Per-tool-result character budget for the advisory reference view. Tool
 # results can be huge (a full diff, a 5000-line file dump); replaying them
@@ -259,6 +262,9 @@ def _run_reference(
         except Exception:  # pragma: no cover - defensive
             pass
         _output_text = _extract_text(response) or "(empty response)"
+        _stats = getattr(response, "stats", None)
+        if not (isinstance(_stats, dict) and _stats):
+            _stats = None
         acct = _RefAccounting(
             usage,
             cost_usd,
@@ -270,6 +276,7 @@ def _run_reference(
             provider=runtime.get("provider") or slot.get("provider"),
             temperature=temperature,
             duration_s=_call_duration,
+            stats=_stats,
         )
         return label, _output_text, acct
     except Exception as exc:

@@ -92,6 +92,7 @@ def _slot_trace(acct: Any, label: str) -> dict[str, Any]:
         "cost_status": getattr(acct, "cost_status", None),
         "cost_source": getattr(acct, "cost_source", None),
         "duration_s": getattr(acct, "duration_s", None),
+        "stats": getattr(acct, "stats", None),
     }
 
 
