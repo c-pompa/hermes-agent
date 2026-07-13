@@ -22,6 +22,15 @@ Remote naming differs per machine:
 ## Fork delta (re-apply after each upstream sync)
 
 ### Core code patches (⚠ upstream-owned files — check first on every sync)
+- `hermes_cli/web_server.py` (`start_server`) + `tui_gateway/slash_worker.py`
+  (`main`) — **shell-hook registration for dashboard + TUI-worker processes
+  (2026-07-12).** Upstream only registers declarative shell hooks in the CLI
+  agent commands and `gateway run` entry points; dashboard chat sessions and
+  TUI slash workers run full agent turns WITHOUT hooks, so
+  `post_api_request`/`subagent_stop` observability silently never fires for
+  them (metrics dashboard showed only cron/CLI traffic). Both now call
+  `register_from_config(load_config(), accept_hooks=False)` at startup,
+  mirroring `gateway/run.py` (consent via `hooks_auto_accept`/env).
 - `gateway/run.py` — **per-turn .env reload clobbering terminal config fix
   (2026-07-10).** `_reload_runtime_env_preserving_config_authority()` reloads
   `~/.hermes/.env` with `override=True` every turn (via

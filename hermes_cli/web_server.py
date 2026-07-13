@@ -14186,6 +14186,19 @@ def start_server(
     except Exception as exc:
         _log.debug("Nous auth keepalive did not start: %s", exc)
 
+    # Register declarative shell hooks (same as gateway/run.py) — dashboard
+    # chat sessions run agent turns in THIS process, and without this the
+    # post_api_request/subagent_stop observability hooks silently never fire
+    # for them. Non-TTY: consent resolves from HERMES_ACCEPT_HOOKS env or
+    # hooks_auto_accept in config. Never blocks startup.
+    try:
+        from hermes_cli.config import load_config as _lc
+        from agent.shell_hooks import register_from_config as _rfc
+
+        _rfc(_lc(), accept_hooks=False)
+    except Exception:
+        _log.debug("shell-hook registration failed at dashboard startup", exc_info=True)
+
     # Phase 0: stash the auth-gate flag on app.state so middleware / SPA-token
     # injection / WS-auth paths can branch on it consistently.  Phase 3.5
     # uses this to decide whether to refuse the bind, log the gate-on

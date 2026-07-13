@@ -121,6 +121,19 @@ def main():
     os.environ["HERMES_SESSION_KEY"] = args.session_key
     os.environ["HERMES_INTERACTIVE"] = "1"
 
+    # Register declarative shell hooks (same as gateway/run.py) — this worker
+    # runs full agent turns for a TUI session, and without registration the
+    # post_api_request/subagent_stop observability hooks never fire here.
+    # Non-TTY: consent resolves from HERMES_ACCEPT_HOOKS env or
+    # hooks_auto_accept in config. Never blocks worker startup.
+    try:
+        from hermes_cli.config import load_config
+        from agent.shell_hooks import register_from_config
+
+        register_from_config(load_config(), accept_hooks=False)
+    except Exception:
+        pass
+
     # Start before the (hundreds-of-ms) HermesCLI build — that window is itself
     # an orphan risk if the gateway dies mid-spawn.
     orig_ppid = os.getppid()
