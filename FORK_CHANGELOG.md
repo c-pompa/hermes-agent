@@ -15,15 +15,19 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-07-20 — vendored upstream `134c2ed8b`
-(**0.18.2 / 2026.7.7.2+**, 2,196 commits since `a9b55989`). Patch outcomes
-this sync: the **MoA multimodal-content fix is DROPPED** (upstream fixed it:
-`8582f35d9` flatten structured content in the advisory view, plus
-`b4c2c4f92`/`b013ed03e`); terminal-bridge + MoA observability patches
-**ported** onto upstream's refactored code (upstream's versions win, our
-behavior worked around them — details per item below); hooks registration +
-metrics-lite applied **clean**; **leading-user-turn invariant added** to the
-delta (was committed 2026-07-10 on the old base, first carried here).
+**Last sync:** 2026-07-20 — vendored upstream `d7b36070e`
+(**0.19.0 / v2026.7.20 + 28**, 152 commits since `134c2ed8b`). Patch verdicts:
+**all six patches still needed** (upstream untouched in every patched area);
+the whole delta applied clean via 3-way (`scripts/fork-sync.sh`). MoA
+multimodal fix remains dropped (upstream flattening intact).
+
+**Previous sync:** 2026-07-20 (earlier same day) — vendored upstream
+`134c2ed8b` (0.18.2 / 2026.7.7.2+, 2,196 commits since `a9b55989`). The MoA
+multimodal-content fix was DROPPED there (upstream fixed it: `8582f35d9`,
+`b4c2c4f92`, `b013ed03e`); terminal-bridge + MoA observability patches were
+ported onto upstream's refactored code (upstream's versions win, our behavior
+worked around them — details per item below); hooks registration +
+metrics-lite applied clean; leading-user-turn invariant added to the delta.
 
 Remote naming differs per machine:
 - **mini** (gateway, `~/.hermes/hermes-agent`): `origin` = gitlab, `upstream` = GitHub

@@ -74,6 +74,7 @@ FORK_UPDATE_RUNBOOK.md                                         # this file
 FORK_CHANGELOG.md
 HERMES.md
 .gitlab-ci.yml
+scripts/fork-sync.sh                                           # snapshot builder (§4)
 skills/mlops/models/comfyui/                                   # whole dir (ours only)
 skills/creative/i2v-landscape-animation/                       # whole dir (ours only)
 skills/creative/comfyui/scripts/i2v_landscape.py              # 3 i2v files added to an
@@ -104,6 +105,11 @@ new upstream scripts is a tracked follow-up in `FORK_CHANGELOG.md`).
 ---
 
 ## 4. Build a new fork snapshot (on the Mac)
+
+> **Automated path:** `scripts/fork-sync.sh` performs steps 1–4 below
+> (fetch, delta + collision check, worktree, overlay, 3-way patch apply) and
+> stops before committing. Use it, then pick up at step 5 after tests pass.
+> The manual commands below remain the reference for what the script does.
 
 ```bash
 cd ~/.hermes/hermes-agent
@@ -259,7 +265,54 @@ reset/force-pushed back from the Mac if a bad snapshot was published.
 
 ---
 
-## 9. Quick gotcha index
+## 9. Standing update procedure (every upstream release)
+
+Same actions, same order, every release. ~30–60 min when patches apply clean.
+
+1. **Assess upstream.** Run `scripts/fork-sync.sh` on the Mac: fetches both
+   remotes, counts/logs the new upstream commits, collision-checks the
+   additive delta, builds `/tmp/hermes-vendor` at the new upstream HEAD,
+   overlays the additive files, and re-applies the code patches via 3-way.
+   It does NOT commit or push — that stays a manual checkpoint after tests.
+2. **Review patch verdicts.** For each item in `FORK_CHANGELOG.md`
+   §"Core code patches": grep the new upstream for the patched symbol. If
+   upstream implemented the same thing (e.g. the MoA multimodal fix in
+   0.18.2), DROP ours and record it in the changelog. Resolve 3-way
+   conflicts **upstream-first**: take upstream's updated code, port our
+   behavior around it.
+3. **Review the dashboard + observability chain.** Our metrics dashboard
+   (`~/hermes-metrics-dash` on the mini) is fed by the hooks/MoA-trace
+   patches. If upstream reworked `hermes_cli/web_server.py`, `tui_gateway/`,
+   or hook payloads, re-check that our hook registration and the `stats`
+   passthrough still line up with what the dashboard consumes — and prefer a
+   new upstream feature over our patch where they now overlap.
+4. **LM Studio review.** `grep -iE "lmstudio|lm-link|lmlink"` on the saved
+   upstream delta list. If upstream changed provider/API expectations (or a
+   new LM Studio release fixes bugs we hit, e.g. empty `stats` payloads),
+   check LM Studio on every host (mini, Mac, Pomps, DESKTOP-39NF657) against
+   the latest release and update: macOS → LM Studio app; Windows → in-app
+   updater. Keep models loaded afterwards and verify `lms ps` on the mini.
+5. **Test** in the worktree (§4: venv + targeted pytest), then `commit-tree`
+   with parent = fork main and FF-push to gitlab.
+6. **Deploy to the mini FIRST** (§5) and verify (§6): health 200, dashboard
+   200, clean boot log, one real agent turn, `requests.jsonl` gains a fresh
+   record. The mini is the LAN gateway — it soaks before clients move.
+7. **Update the MacBook** (only after the mini is green): `git pull` fork
+   main in `~/.hermes/hermes-agent`, then
+   `~/.local/bin/uv pip install -e ".[all]" --python .venv/bin/python`;
+   quit/relaunch any `hermes --tui`; relaunch Hermes Desktop.
+8. **Update the Windows desktops** (DESKTOP-39NF657, Pomps): they consume
+   the remote gateway, so usually nothing to install — relaunch Hermes
+   Desktop so it re-reads the dashboard. If upstream shipped a new Desktop
+   app release, update the app (`windows/onboard-client.ps1` flow or in-app
+   update). Verify each client reaches `hermes-serv.cpompa.com:8642/health`.
+9. **Bookkeeping.** `FORK_CHANGELOG.md` "Last sync" (ships in the snapshot),
+   the version line in `hermes-desktop-iac/ARCHITECTURE.md`, and report any
+   config drift (new optional `.env` keys, validator warnings) to the user.
+
+---
+
+## 10. Quick gotcha index
 
 - `-25308` / "could not read Username" on the mini → keychain locked over SSH;
   relay from the Mac instead (Section 5). Never try to push gitlab from a
