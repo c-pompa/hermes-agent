@@ -29,7 +29,8 @@ haven't.
 3. **The homelab delta is a small, fixed set of additive files** overlaid on
    every snapshot. Source of truth is whatever `git diff --name-only` reports
    between an upstream base and our fork `main` (Section 3). As of this writing
-   it is **13 files** (12 skill/CI/doc files + this runbook).
+   it is **15 additive files** (skills/CI/docs) **plus the code-patch set**
+   documented in `FORK_CHANGELOG.md` §"Core code patches".
 
 4. **The mini CANNOT push/fetch gitlab over SSH.** Its credential lives in the
    macOS login keychain (`osxkeychain`), which is locked in non-interactive SSH
@@ -51,8 +52,8 @@ haven't.
     **`:8642`** (`/health` is open; `/v1/*` needs the api_server key).
   - Dashboard: launchd label `ai.hermes.dashboard`, **loopback** `:9119`
     (token-gated; reached from clients via SSH tunnel).
-  - Install: **editable** (`pip install -e`), Python **3.11**, `uv` at
-    `~/.local/bin/uv`, venv at `<repo>/venv` (no `pip` inside — use `uv`).
+  - Install: **editable** (`pip install -e`), Python **3.13**, `uv` at
+    `~/.local/bin/uv`, venv at `<repo>/.venv` (no `pip` inside — use `uv`).
 - **Rollback tags** live on gitlab as `backup/pre-update-YYYYMMDD`.
 
 ---
@@ -79,6 +80,16 @@ skills/creative/comfyui/scripts/i2v_landscape.py              # 3 i2v files adde
 skills/creative/comfyui/workflows/animate_diff-i2v-landscape.md.json   #  upstream-owned skill
 skills/creative/comfyui/workflows/wanvideo-i2v-landscape.md.json
 ```
+
+(The two `*.meta.json` sidecars under `skills/creative/comfyui/workflows/`
+are ours too — they appear in the `diff --name-only` list above.) **Since the
+2026-07-20 sync the delta also includes CODE PATCHES on upstream-owned files**
+(`gateway/run.py`, `agent/moa_loop.py`, `agent/moa_trace.py`, `run_agent.py`,
+`hermes_cli/web_server.py`, `tui_gateway/slash_worker.py`,
+`agent/agent_runtime_helpers.py`, `agent/conversation_loop.py`,
+`tests/run_agent/test_message_sequence_repair.py`) — those are NOT overlaid;
+they are re-applied per `FORK_CHANGELOG.md` §"Core code patches" (cherry-pick,
+then port conflicts onto upstream's new code — upstream's version wins).
 
 **Dropped on purpose:** our old `agent/image_routing.py` magic-byte fix (now
 native upstream). **Taken from upstream:** `skills/creative/comfyui`'s
@@ -170,7 +181,7 @@ ssh christianpompa@10.88.1.208 'cd ~/.hermes/hermes-agent &&
 
 # --- rebuild venv (editable; gateway keeps running on in-memory code) ---
 ssh christianpompa@10.88.1.208 'cd ~/.hermes/hermes-agent &&
-  ~/.local/bin/uv pip install -e ".[all]" --python venv/bin/python'
+  ~/.local/bin/uv pip install -e ".[all]" --python .venv/bin/python'
 #   check the output for errors; "Installed/Uninstalled N packages" with no
 #   error lines = good. (uv re-resolves; most deps are cached so it's fast.)
 
@@ -187,7 +198,7 @@ ssh christianpompa@10.88.1.208 'U=$(id -u);
 ```bash
 ssh christianpompa@10.88.1.208 '
   cd ~/.hermes/hermes-agent;
-  ./venv/bin/hermes --version;                                   # shows new local sha
+  ./.venv/bin/hermes --version;                                   # shows new local sha
   curl -s -m6 -o/dev/null -w "gateway /health -> %{http_code}\n" http://127.0.0.1:8642/health;
   curl -s -m6 -o/dev/null -w "dashboard       -> %{http_code}\n" http://127.0.0.1:9119/;
   tail -8 ~/.hermes/logs/gateway.log;                           # expect clean boot, no traceback
@@ -238,7 +249,7 @@ own tunnel (anti-DNS-rebinding rejects non-loopback Host headers).
 # on the mini
 ssh christianpompa@10.88.1.208 'U=$(id -u); cd ~/.hermes/hermes-agent &&
   git reset --hard backup/pre-update-<YYYYMMDD> &&
-  ~/.local/bin/uv pip install -e ".[all]" --python venv/bin/python &&
+  ~/.local/bin/uv pip install -e ".[all]" --python .venv/bin/python &&
   launchctl kickstart -k gui/$U/ai.hermes.gateway &&
   launchctl kickstart -k gui/$U/ai.hermes.dashboard'
 ```
@@ -256,7 +267,7 @@ reset/force-pushed back from the Mac if a bad snapshot was published.
 - Massive merge conflicts → you tried to merge/pull upstream. Don't. Build a
   snapshot (Section 4).
 - `:8000` is **command-center (jackson_biz)**, not Hermes. Gateway is `:8642`.
-- venv has no `pip` → use `uv pip ... --python venv/bin/python`.
+- venv has no `pip` → use `uv pip ... --python .venv/bin/python`.
 - BSD `xargs`/`date` quirks → list delta paths explicitly; let the shell/human
   compute dates (AI sandboxes may block `date`).
 - Editable install means a `git reset` makes code live immediately, but the

@@ -15,6 +15,16 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
+**Last sync:** 2026-07-20 — vendored upstream `134c2ed8b`
+(**0.18.2 / 2026.7.7.2+**, 2,196 commits since `a9b55989`). Patch outcomes
+this sync: the **MoA multimodal-content fix is DROPPED** (upstream fixed it:
+`8582f35d9` flatten structured content in the advisory view, plus
+`b4c2c4f92`/`b013ed03e`); terminal-bridge + MoA observability patches
+**ported** onto upstream's refactored code (upstream's versions win, our
+behavior worked around them — details per item below); hooks registration +
+metrics-lite applied **clean**; **leading-user-turn invariant added** to the
+delta (was committed 2026-07-10 on the old base, first carried here).
+
 Remote naming differs per machine:
 - **mini** (gateway, `~/.hermes/hermes-agent`): `origin` = gitlab, `upstream` = GitHub
 - **Mac** (`~/.hermes/hermes-agent`): `origin` = GitHub, `gitlab` = gitlab
@@ -32,7 +42,7 @@ Remote naming differs per machine:
   `register_from_config(load_config(), accept_hooks=False)` at startup,
   mirroring `gateway/run.py` (consent via `hooks_auto_accept`/env).
 - `gateway/run.py` — **per-turn .env reload clobbering terminal config fix
-  (2026-07-10).** `_reload_runtime_env_preserving_config_authority()` reloads
+  (2026-07-10; ported 2026-07-20).** `_reload_runtime_env_preserving_config_authority()` reloads
   `~/.hermes/.env` with `override=True` every turn (via
   `_current_max_iterations()`) but only re-bridged `agent.max_turns` — so a
   stale `TERMINAL_ENV=docker` in `.env` silently overrode config.yaml's
@@ -47,6 +57,11 @@ Remote naming differs per machine:
   `_current_max_iterations()` calls (pre-fix it flipped to `docker`).
   Check on every upstream snapshot until upstream fixes the reload to
   re-assert the full terminal bridge.
+  **2026-07-20 port note:** upstream added its own inline startup bridge
+  (with `docker_network` in the map and SSH-tilde-aware cwd handling via
+  `tools.terminal_tool._is_ssh_remote_tilde_cwd`) but still does NOT
+  re-bridge on the per-turn reload. Our hoist now uses upstream's map +
+  loop body verbatim; only the hoisting + per-turn call are ours.
 - `agent/moa_loop.py` + `agent/moa_trace.py` + `run_agent.py` — **MoA
   per-reference call timing + provider stats passthrough (2026-07-10/12).**
   `_RefAccounting` gains `duration_s` and `stats` slots, `_run_reference()`
@@ -66,20 +81,36 @@ Remote naming differs per machine:
   `<hermes_home>/metrics/moa-refs.jsonl` on EVERY MoA turn, **independent of
   `moa.save_traces`** — preset editors (`hermes moa` / dashboard MoA panel)
   rewrite the `moa:` block and drop `save_traces`, which used to silently
-  kill proposer observability. Small, additive; re-apply on upstream sync
-  alongside the multimodal fix below.
-- `agent/moa_loop.py` — **MoA reference multimodal-content fix (2026-07-02).**
-  Added `_content_text()` and routed `_reference_messages()` through it so a
-  user turn sent as OpenAI **list/multimodal content** (`[{"type":"text",
-  "text":...}]`) is flattened to its text instead of being dropped to `""`.
-  Without it, every MoA *reference* (proposer) call received an **empty** user
-  message and LM Studio's strict chat templates 400'd with
-  `"No user query found in messages."`, breaking `/moa` and MoA-as-primary
-  entirely (proposers never ran). Upstream still has the `content if
-  isinstance(content, str) else ""` line verbatim as of upstream `88d1d6206`,
-  so **this patch must be re-applied on every upstream snapshot** until upstream
-  fixes it. Verified: `_reference_messages([{system},{user:[{text:"hi"}]}])`
-  now yields a non-empty user turn.
+  kill proposer observability. Small, additive; re-apply on upstream sync.
+  **2026-07-20 port note:** `_run_reference()` was refactored upstream
+  (advisory system prompt + `_maybe_apply_moa_cache_control` decoration);
+  the `time.monotonic()` wrap now starts before the `try:` (covers failures)
+  and the success/failure `_RefAccounting` constructors both take
+  `duration_s`. `moa_trace.py` was untouched upstream → applied clean.
+- `agent/agent_runtime_helpers.py` + `agent/conversation_loop.py` +
+  `tests/run_agent/test_message_sequence_repair.py` — **leading-user-turn
+  invariant (2026-07-10; ported 2026-07-20).** A resumed lineage whose
+  history begins with a context-compaction summary merged into a leading
+  `assistant(tool_calls)` turn produced payloads shaped
+  `system → assistant → tool → … → user`; Qwen-derived LM Studio/LMLink
+  templates 400 with `"No user query found in messages."` and Anthropic
+  rejects non-user-leading payloads. Two guards: `ensure_user_leads_api_messages()`
+  (send-time, API copy only, called in `conversation_loop` after surrogate
+  sanitization, before the token estimate) and `repair_message_sequence()`
+  **Pass 3** (persisted history, normalized once). Both insert a minimal
+  `_LEADING_USER_BRIDGE` user turn ahead of the offending turn; no-op on
+  well-formed payloads. Port notes: upstream added
+  `repair_message_sequence_with_cursor` (delegates to `repair_message_sequence`,
+  so Pass 3 stays live on the persistence path) and its own tests at the
+  same test-file path — our 9 tests are appended to upstream's file.
+- `agent/moa_loop.py` — **MoA reference multimodal-content fix (2026-07-02) —
+  DROPPED 2026-07-20 (fixed upstream).** Upstream's `_reference_messages()`
+  now flattens structured/list content itself (`8582f35d9` "flatten
+  structured message content in the advisory view", plus `b4c2c4f92`
+  drop-empty-user-turns and `b013ed03e` placeholder scoping), covering the
+  case our `_content_text()` patch handled (list/multimodal user turns
+  dropped to `""` → LM Studio 400 `"No user query found in messages."`).
+  Do NOT re-apply; verify on each sync that upstream's flattening remains.
 
 ### Skills — only ours (drop-in, low conflict risk)
 - `skills/mlops/models/comfyui/` — remote ComfyUI skill: `queue_workflow.py`,
