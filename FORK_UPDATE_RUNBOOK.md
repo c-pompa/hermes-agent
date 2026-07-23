@@ -5,7 +5,7 @@ newer upstream release **while preserving our homelab customizations**, then
 deploying to the gateway server (Mac mini) and client machines.
 
 **Companion docs:** [`FORK_CHANGELOG.md`](FORK_CHANGELOG.md) (what our delta is)
-and [`HERMES.md`](HERMES.md) (per-machine git rules). Read those first if you
+and [`HERMES.md`](HERMES.md) (fork git rules). Read those first if you
 haven't.
 
 ---
@@ -19,12 +19,15 @@ haven't.
    **Never `git pull` / `git merge` from the upstream remote** — it will conflict
    on thousands of files. Always build a fresh snapshot (Section 4).
 
-2. **Remote names differ per machine — always `git remote -v` first.**
+2. **Remote names — unified 2026-07-23 (still `git remote -v` first).**
 
-   | Machine | gitlab.cpompa.com (our fork) | GitHub NousResearch (upstream) |
-   |---------|------------------------------|--------------------------------|
-   | **Mac** (`~/.hermes/hermes-agent`) | `gitlab` | `origin` |
-   | **mini** (`~/.hermes/hermes-agent`, gateway) | `origin` | `upstream` |
+   | Remote | Points at | On |
+   |--------|-----------|----|
+   | `origin` | gitlab.cpompa.com/cpompa/hermes-agent (our fork) | Mac + mini |
+   | `upstream` | github.com/NousResearch/hermes-agent (read-only) | Mac + mini |
+
+   (Pre-2026-07-23 the Mac had `origin` = GitHub and `gitlab` = the fork —
+   older notes/scripts may still use that reversed naming.)
 
 3. **The homelab delta is a small, fixed set of additive files** overlaid on
    every snapshot. Source of truth is whatever `git diff --name-only` reports
@@ -64,7 +67,7 @@ Recompute the authoritative list any time with:
 
 ```bash
 # on the Mac, BASE = the upstream commit the CURRENT fork main was snapshotted from
-git -C ~/.hermes/hermes-agent diff --name-only <BASE> gitlab/main
+git -C ~/.hermes/hermes-agent diff --name-only <BASE> origin/main
 ```
 
 Current set (all **additive** — none overwrite upstream files):
@@ -117,29 +120,29 @@ new upstream scripts is a tracked follow-up in `FORK_CHANGELOG.md`).
 
 ```bash
 cd ~/.hermes/hermes-agent
-git remote -v   # sanity: origin=GitHub, gitlab=gitlab
+git remote -v   # sanity: origin=gitlab (fork), upstream=GitHub
 
 # 1. Fetch latest upstream and see what's new
-git fetch origin --tags --prune
+git fetch upstream --tags --prune
 BASE=<upstream-base-of-current-fork-main>     # e.g. the 41c85fb94 from last time
-NEW=$(git rev-parse origin/main)
-git rev-list --count $BASE..origin/main       # how many new commits
-git log --oneline $BASE..origin/main | head   # skim them
+NEW=$(git rev-parse upstream/main)
+git rev-list --count $BASE..upstream/main     # how many new commits
+git log --oneline $BASE..upstream/main | head # skim them
 
 # 2. Compute delta + collision-check it against NEW upstream
-git diff --name-only $BASE gitlab/main | tee /tmp/delta.txt
+git diff --name-only $BASE origin/main | tee /tmp/delta.txt
 while read -r f; do [ -n "$f" ] && git cat-file -e "$NEW:$f" 2>/dev/null \
   && echo "COLLISION: $f"; done < /tmp/delta.txt   # expect NO output
 
 # 3. Tag a rollback (current fork main) and push it
-git tag -f backup/pre-update-$(date +%Y%m%d) gitlab/main
-git push -f gitlab backup/pre-update-$(date +%Y%m%d)   # date computed by a human/shell, not the agent
+git tag -f backup/pre-update-$(date +%Y%m%d) origin/main
+git push -f origin backup/pre-update-$(date +%Y%m%d)   # date computed by a human/shell, not the agent
 
 # 4. Build the snapshot in a throwaway worktree at NEW upstream
 WT=/tmp/hermes-vendor; rm -rf "$WT"
 git worktree add --detach "$WT" "$NEW"
-#   overlay our delta files from gitlab/main (list them explicitly; xargs is fiddly on BSD)
-git -C "$WT" checkout gitlab/main -- \
+#   overlay our delta files from origin/main (list them explicitly; xargs is fiddly on BSD)
+git -C "$WT" checkout origin/main -- \
   FORK_UPDATE_RUNBOOK.md FORK_CHANGELOG.md HERMES.md .gitlab-ci.yml \
   skills/mlops/models/comfyui skills/creative/i2v-landscape-animation \
   skills/creative/comfyui/scripts/i2v_landscape.py \
@@ -149,11 +152,11 @@ git -C "$WT" status -s          # MUST be exactly our delta, all "A" (additions)
 
 # 5. Commit with parent = current fork main (linear, clean fast-forward) and push
 TREE=$(git -C "$WT" write-tree)
-COMMIT=$(git -C "$WT" commit-tree "$TREE" -p gitlab/main -m \
+COMMIT=$(git -C "$WT" commit-tree "$TREE" -p origin/main -m \
   "feat: vendor upstream $NEW, re-apply homelab delta")
-git -C "$WT" rev-parse "$COMMIT^"            # MUST equal current gitlab/main (FF check)
+git -C "$WT" rev-parse "$COMMIT^"            # MUST equal current origin/main (FF check)
 git -C "$WT" diff --stat "$COMMIT" "$NEW"    # MUST list ONLY our delta files
-git -C "$WT" push gitlab "$COMMIT:main"      # fast-forward push
+git -C "$WT" push origin "$COMMIT:main"      # fast-forward push
 git worktree remove --force "$WT"
 ```
 
@@ -243,7 +246,7 @@ get the new server behavior:
   upstream changes the dashboard API.
 - **A client with its own checkout** (e.g. this Mac, used for `hermes --tui`):
   to update its *local* code, either relay the snapshot to it the same way as
-  the mini, or `git pull` from gitlab (the Mac has creds: `gitlab` remote), then
+  the mini, or `git pull` from gitlab (the Mac has creds: `origin` remote), then
   `uv pip install -e ".[all]"`. This only matters for local TUI use; it does not
   affect the shared gateway.
 

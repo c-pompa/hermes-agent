@@ -40,9 +40,11 @@ ported onto upstream's refactored code (upstream's versions win, our behavior
 worked around them — details per item below); hooks registration +
 metrics-lite applied clean; leading-user-turn invariant added to the delta.
 
-Remote naming differs per machine:
-- **mini** (gateway, `~/.hermes/hermes-agent`): `origin` = gitlab, `upstream` = GitHub
-- **Mac** (`~/.hermes/hermes-agent`): `origin` = GitHub, `gitlab` = gitlab
+Remote naming (unified 2026-07-23, both Mac and mini):
+- `origin` = gitlab.cpompa.com (our fork), `upstream` = GitHub NousResearch.
+- Before 2026-07-23 the Mac had `origin` = GitHub, `gitlab` = gitlab — that
+  reversed naming also made the Mac's update banner count `HEAD..origin/main`
+  against upstream's divergent history ("9863 new changes available").
 
 ## Fork delta (re-apply after each upstream sync)
 

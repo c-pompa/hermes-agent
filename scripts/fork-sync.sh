@@ -16,8 +16,8 @@ set -euo pipefail
 
 REPO="${HERMES_FORK_REPO:-$HOME/.hermes/hermes-agent}"
 WT="${FORK_SYNC_WT:-/tmp/hermes-vendor}"
-UPSTREAM_REMOTE="${UPSTREAM_REMOTE:-origin}"   # Mac: origin = GitHub upstream
-FORK_REMOTE="${FORK_REMOTE:-gitlab}"           # Mac: gitlab = our fork
+UPSTREAM_REMOTE="${UPSTREAM_REMOTE:-upstream}" # upstream = GitHub (unified 2026-07-23)
+FORK_REMOTE="${FORK_REMOTE:-origin}"           # origin = gitlab, our fork
 TARGET="${1:-$UPSTREAM_REMOTE/main}"
 
 # Additive delta files (ours only) — keep in sync with FORK_UPDATE_RUNBOOK.md §3.

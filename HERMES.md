@@ -1,17 +1,18 @@
 # Project rules: cpompa/hermes-agent fork
 
-## Remote naming is per-machine — check before you push
+## Remote naming — unified across machines (2026-07-23)
 
-This fork has two remotes, but they are **named differently on each
-machine**. Always run `git remote -v` first; never assume.
+Both checkouts (Mac and mini, each at `~/.hermes/hermes-agent`) use the
+same remote names. Still run `git remote -v` first to be safe.
 
-| Machine                              | gitlab.cpompa.com (our fork) | GitHub NousResearch (upstream) |
-| ------------------------------------ | ---------------------------- | ------------------------------ |
-| **mini** (gateway, `~/.hermes/hermes-agent`) | `origin`             | `upstream`                     |
-| **Mac** (`~/.hermes/hermes-agent`)   | `gitlab`                     | `origin`                       |
+| Remote     | Points at                                      |
+| ---------- | ---------------------------------------------- |
+| `origin`   | gitlab.cpompa.com/cpompa/hermes-agent (our fork) |
+| `upstream` | github.com/NousResearch/hermes-agent (read-only) |
 
-Push fork changes to **our fork remote** (the gitlab one for this
-machine). The **GitHub/NousResearch remote is upstream and read-only.**
+Push fork changes to `origin`. The **`upstream` remote is read-only.**
+(Before 2026-07-23 the Mac used `origin` = GitHub, `gitlab` = fork — old
+docs/notes may still reference that.)
 
 ## This fork vendors upstream — do NOT `git pull` upstream
 
@@ -43,7 +44,7 @@ Workarounds, in order of preference:
 
 Before finishing each task or ending the session, commit any
 uncommitted changes on the current branch and push to our fork remote
-(see the remote table above — `origin` on the mini, `gitlab` on the Mac).
+(`origin` on both machines — see the remote table above).
 The worktree is wiped on session exit — uncommitted work is lost
 otherwise.
 
