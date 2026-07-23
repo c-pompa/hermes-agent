@@ -15,7 +15,18 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-07-20 — vendored upstream `d7b36070e`
+**Last sync:** 2026-07-23 — vendored upstream `de5ece994`
+(597 commits since `d7b36070e`). Patch verdicts: **all patches still
+needed** (now including the two 2026-07-21 Desktop patches, committed to the
+delta just before this sync). One 3-way conflict: upstream added a
+persistent-MoA prepare block in `agent/conversation_loop.py` at our
+leading-user-turn guard's insertion point — resolved upstream-first, guard
+re-placed AFTER the MoA block (mutating the rebased `api_messages` also
+fixes the prepared MoA request in place). Everything else applied clean
+via `scripts/fork-sync.sh`. MoA multimodal fix remains dropped (upstream
+flattening intact); no LM Studio-related upstream changes.
+
+**Previous sync:** 2026-07-20 — vendored upstream `d7b36070e`
 (**0.19.0 / v2026.7.20 + 28**, 152 commits since `134c2ed8b`). Patch verdicts:
 **all six patches still needed** (upstream untouched in every patched area);
 the whole delta applied clean via 3-way (`scripts/fork-sync.sh`). MoA
