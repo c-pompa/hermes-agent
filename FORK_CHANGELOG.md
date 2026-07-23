@@ -115,6 +115,41 @@ Remote naming differs per machine:
   case our `_content_text()` patch handled (list/multimodal user turns
   dropped to `""` → LM Studio 400 `"No user query found in messages."`).
   Do NOT re-apply; verify on each sync that upstream's flattening remains.
+- `hermes_cli/main.py` (`cmd_gui`) + `apps/desktop/electron/main.ts` +
+  `apps/desktop/src/global.d.ts` + `apps/desktop/src/store/session.ts` —
+  **honor `hermes desktop --cwd` on a remote gateway (2026-07-21).** Upstream
+  only consults `HERMES_DESKTOP_CWD` via `resolveHermesCwd()` (local-backend
+  spawns / dialog defaults); with `HERMES_DESKTOP_REMOTE_URL` set (our
+  launchd env override to the mini's dashboard), the boot workspace comes
+  from the remembered-per-remote localStorage value, else the gateway's
+  `/api/fs/default-cwd` (= mini gateway's own cwd,
+  `~/.hermes/hermes-agent`) — and `setCurrentCwd` persists every session
+  switch, so the remembered value permanently drifts back to hermes-agent.
+  Patch: `cmd_gui` exports `HERMES_DESKTOP_CWD_EXPLICIT=1` only when `--cwd`
+  was passed (the implicit shell-cwd default must NOT win); Electron main
+  adds `resolveExplicitLaunchCwd()` (validates exists + not install dir) and
+  returns it as `explicitLaunchCwd` from the
+  `hermes:setting:defaultProjectDir:get` IPC; renderer
+  `ensureDefaultWorkspaceCwd()` remote branch seeds
+  `explicitLaunchCwd || remembered` (seeding persists it as the new
+  remembered value, so subsequent new chats land there too). Requires the
+  packaged app rebuild (`hermes desktop --build-only`) after re-applying.
+- `apps/desktop/electron/main.ts` + `preload.ts` +
+  `apps/desktop/src/contrib/runtime-loader.ts` +
+  `apps/desktop/src/app/settings/plugins-settings.tsx` +
+  `apps/desktop/src/global.d.ts` — **local desktop-plugins door on a remote
+  gateway (2026-07-21).** Disk plugins are UI extensions loaded into THIS
+  renderer, but upstream resolves the plugins dir from
+  `getStatus().hermes_home` — with a remote gateway that is the REMOTE
+  host's home, so local fs ops fail (EACCES walking to
+  `/Users/<remote-user>`) and files dropped there would never load anyway.
+  Patch: main adds a `hermes:desktopPluginsDir` IPC (returns the LOCAL
+  `HERMES_HOME/desktop-plugins` when the connection mode is remote, null
+  for local backends); renderer `resolveDiskPluginsDir()` prefers it, with
+  the gateway-reported home as the local-backend fallback; used by both the
+  disk-plugin scanner and the Settings "reveal plugins folder" button.
+  Requires the packaged app rebuild (`hermes desktop --build-only`) after
+  re-applying.
 
 ### Skills — only ours (drop-in, low conflict risk)
 - `skills/mlops/models/comfyui/` — remote ComfyUI skill: `queue_workflow.py`,

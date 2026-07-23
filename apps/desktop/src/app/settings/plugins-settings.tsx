@@ -5,8 +5,7 @@ import { Codicon } from '@/components/ui/codicon'
 import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
 import { $pluginRecords, type PluginRecord, setPluginEnabled } from '@/contrib/plugins-store'
-import { discoverRuntimePlugins } from '@/contrib/runtime-loader'
-import { getStatus } from '@/hermes'
+import { discoverRuntimePlugins, resolveDiskPluginsDir } from '@/contrib/runtime-loader'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import { Package } from '@/lib/icons'
@@ -22,10 +21,13 @@ function reveal(file: string) {
 
 async function revealPluginsDir() {
   try {
-    const { hermes_home } = await getStatus()
+    // resolveDiskPluginsDir (not getStatus().hermes_home): with a remote
+    // gateway the reported home is the remote host's — openDir must target
+    // THIS machine's door.
+    const pluginsDir = await resolveDiskPluginsDir()
     // openDir (not reveal): the door often doesn't exist on first use, and
     // showItemInFolder on a missing path silently no-ops (esp. Windows).
-    const result = await window.hermesDesktop?.openDir?.(`${hermes_home}/desktop-plugins`)
+    const result = await window.hermesDesktop?.openDir?.(pluginsDir)
 
     if (result && !result.ok) {
       notifyError(result.error ?? 'unknown error', 'Could not open the plugins folder')

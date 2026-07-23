@@ -40,6 +40,10 @@ export const setRememberedRoute = (path: null | string) => persistString(LAST_RO
 
 let configuredDefaultProjectDir = ''
 
+// Fork: explicit `hermes desktop --cwd` launch directory (main-process
+// validated). Beats the remembered workspace when seeding a remote gateway.
+let explicitLaunchCwd = ''
+
 function workspaceCwdKey(connection: HermesConnection | null = $connection.get()): string {
   if (connection?.mode !== 'remote') {
     return WORKSPACE_CWD_KEY
@@ -61,12 +65,14 @@ export async function syncConfiguredDefaultProjectDir(): Promise<string> {
 
   if (!settings) {
     configuredDefaultProjectDir = ''
+    explicitLaunchCwd = ''
 
     return ''
   }
 
-  const { dir } = await settings()
+  const { dir, explicitLaunchCwd: launchCwd } = await settings()
   configuredDefaultProjectDir = dir?.trim() || ''
+  explicitLaunchCwd = launchCwd?.trim() || ''
 
   return configuredDefaultProjectDir
 }
@@ -91,6 +97,17 @@ export async function ensureDefaultWorkspaceCwd(): Promise<void> {
   }
 
   const remembered = getRememberedWorkspaceCwd()
+
+  // Fork: an explicit `hermes desktop --cwd` beats the remembered workspace
+  // and the configured default, in BOTH connection modes. Seeding goes through
+  // setCurrentCwd, which also persists it as the new remembered value — so
+  // subsequent new chats land there too. (Main-process validated: the path
+  // exists and is outside the install tree, see resolveExplicitLaunchCwd.)
+  if (explicitLaunchCwd) {
+    seedLiveCwd(explicitLaunchCwd)
+
+    return
+  }
 
   if ($connection.get()?.mode === 'remote') {
     seedLiveCwd(remembered)

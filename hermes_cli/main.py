@@ -5856,6 +5856,10 @@ def cmd_gui(args: argparse.Namespace):
         env["HERMES_DESKTOP_HERMES_ROOT"] = str(Path(args.hermes_root).expanduser().resolve())
     if getattr(args, "cwd", None):
         env["HERMES_DESKTOP_CWD"] = str(Path(args.cwd).expanduser().resolve())
+        # Fork: mark the cwd as user-requested so the app can honor it even on
+        # a remote gateway, where the implicit shell-cwd default must not win
+        # over the remembered workspace (see FORK_CHANGELOG.md).
+        env["HERMES_DESKTOP_CWD_EXPLICIT"] = "1"
     else:
         env["HERMES_DESKTOP_CWD"] = os.getcwd()
 

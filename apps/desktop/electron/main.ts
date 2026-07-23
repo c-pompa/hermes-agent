@@ -3329,6 +3329,30 @@ function resolveHermesCwd() {
   return app.getPath('home')
 }
 
+// Fork: `hermes desktop --cwd <dir>` exports HERMES_DESKTOP_CWD plus the
+// _EXPLICIT marker. Upstream only consults the cwd via resolveHermesCwd(),
+// which the remote-gateway session path never reads — so surface an explicitly
+// requested launch directory for the renderer to seed the workspace with.
+function resolveExplicitLaunchCwd() {
+  if (process.env.HERMES_DESKTOP_CWD_EXPLICIT !== '1') {
+    return null
+  }
+
+  const raw = (process.env.HERMES_DESKTOP_CWD || '').trim()
+
+  if (!raw) {
+    return null
+  }
+
+  const resolved = path.resolve(raw)
+
+  if (isPackagedInstallPath(resolved) || !directoryExists(resolved)) {
+    return null
+  }
+
+  return resolved
+}
+
 function sanitizeWorkspaceCwd(cwd) {
   const trimmed = typeof cwd === 'string' ? cwd.trim() : ''
 
@@ -8691,7 +8715,9 @@ ipcMain.handle('hermes:openPreviewInBrowser', async (_event, url) => {
 ipcMain.handle('hermes:setting:defaultProjectDir:get', async () => ({
   dir: readDefaultProjectDir(),
   defaultLabel: app.getPath('home'),
-  resolvedCwd: resolveHermesCwd()
+  resolvedCwd: resolveHermesCwd(),
+  // Fork: explicit `hermes desktop --cwd` target (see resolveExplicitLaunchCwd).
+  explicitLaunchCwd: resolveExplicitLaunchCwd()
 }))
 
 ipcMain.handle('hermes:workspace:sanitize', async (_event, cwd) => sanitizeWorkspaceCwd(cwd))
@@ -8981,6 +9007,27 @@ ipcMain.handle('hermes:fs:openDir', async (_event, dirPath) => {
     return error ? { ok: false, error } : { ok: true }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
+})
+
+// The on-disk desktop-plugins door for THIS app instance. Disk plugins are UI
+// extensions loaded into this renderer, so the door must live on THIS machine.
+// When the primary connection is a remote/cloud gateway, the gateway-reported
+// hermes_home points at the REMOTE host — local fs ops against it fail (EACCES
+// mkdir walking down to a nonexistent /Users/<remote-user>) and files dropped
+// there would never load here anyway. Returns null for a local backend so the
+// renderer keeps using the gateway-reported hermes_home (profile-aware).
+ipcMain.handle('hermes:desktopPluginsDir', async () => {
+  try {
+    const cfg = await sanitizeDesktopConnectionConfig()
+
+    if (cfg.mode === 'local') {
+      return null
+    }
+
+    return path.join(HERMES_HOME, 'desktop-plugins')
+  } catch {
+    return null
   }
 })
 

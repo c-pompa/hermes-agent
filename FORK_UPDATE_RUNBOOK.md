@@ -88,7 +88,11 @@ are ours too — they appear in the `diff --name-only` list above.) **Since the
 (`gateway/run.py`, `agent/moa_loop.py`, `agent/moa_trace.py`, `run_agent.py`,
 `hermes_cli/web_server.py`, `tui_gateway/slash_worker.py`,
 `agent/agent_runtime_helpers.py`, `agent/conversation_loop.py`,
-`tests/run_agent/test_message_sequence_repair.py`) — those are NOT overlaid;
+`tests/run_agent/test_message_sequence_repair.py`, `hermes_cli/main.py`,
+and the desktop set `apps/desktop/electron/{main,preload}.ts`,
+`apps/desktop/src/store/session.ts`, `apps/desktop/src/global.d.ts`,
+`apps/desktop/src/contrib/runtime-loader.ts`,
+`apps/desktop/src/app/settings/plugins-settings.tsx`) — those are NOT overlaid;
 they are re-applied per `FORK_CHANGELOG.md` §"Core code patches" (cherry-pick,
 then port conflicts onto upstream's new code — upstream's version wins).
 

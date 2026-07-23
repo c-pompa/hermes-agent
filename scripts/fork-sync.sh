@@ -40,6 +40,11 @@ PATCH_FILES=(
   hermes_cli/web_server.py tui_gateway/slash_worker.py
   agent/agent_runtime_helpers.py agent/conversation_loop.py
   tests/run_agent/test_message_sequence_repair.py
+  hermes_cli/main.py
+  apps/desktop/electron/main.ts apps/desktop/electron/preload.ts
+  apps/desktop/src/store/session.ts apps/desktop/src/global.d.ts
+  apps/desktop/src/contrib/runtime-loader.ts
+  apps/desktop/src/app/settings/plugins-settings.tsx
 )
 
 cd "$REPO"

@@ -180,7 +180,11 @@ export async function loadRuntimePlugin(
 
 // ---------------------------------------------------------------------------
 // The on-disk plugin door: `<hermes home>/desktop-plugins/<name>/plugin.js`
-// (agent- or user-written). SELF-MAINTAINING — no reload ceremony:
+// (agent- or user-written). Which "hermes home" depends on the backend: a
+// LOCAL backend reports its own hermes_home (profile-aware, authoritative);
+// a REMOTE/cloud gateway reports the home of ITS machine, which is useless
+// for local fs ops — main then hands us this app's local HERMES_HOME door
+// instead (see resolveDiskPluginsDir). SELF-MAINTAINING — no reload ceremony:
 //  - each plugin.js is fs-watched (the preview watcher IPC, debounced in
 //    main): saving the file hot-reloads the plugin in place;
 //  - a slow visible-tab poll of the directory picks up new folders (load +
@@ -234,6 +238,21 @@ async function loadDiskPlugin(name: string, file: string): Promise<void> {
   }
 }
 
+// The on-disk plugin door for THIS app instance: a LOCAL path when the
+// gateway is remote/cloud (the gateway-reported hermes_home points at the
+// remote host and local fs ops there fail), or the gateway-reported home
+// when the backend is local (profile-aware).
+export async function resolveDiskPluginsDir(): Promise<string> {
+  const local = await window.hermesDesktop?.desktopPluginsDir?.()
+
+  if (local) {
+    return local
+  }
+
+  const { hermes_home } = await getStatus()
+  return `${hermes_home}/desktop-plugins`
+}
+
 async function scanDiskPlugins(): Promise<void> {
   const desktop = window.hermesDesktop
 
@@ -246,8 +265,8 @@ async function scanDiskPlugins(): Promise<void> {
   scanning = true
 
   try {
-    const { hermes_home } = await getStatus()
-    const { entries } = await desktop.readDir(`${hermes_home}/desktop-plugins`)
+    const pluginsDir = await resolveDiskPluginsDir()
+    const { entries } = await desktop.readDir(pluginsDir)
     const seen = new Set<string>()
 
     for (const dir of entries.filter(e => e.isDirectory)) {

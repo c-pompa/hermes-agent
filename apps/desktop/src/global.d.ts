@@ -95,7 +95,13 @@ declare global {
       fetchLinkTitle: (url: string) => Promise<string>
       sanitizeWorkspaceCwd: (cwd?: null | string) => Promise<{ cwd: string; sanitized: boolean }>
       settings: {
-        getDefaultProjectDir: () => Promise<{ defaultLabel: string; dir: null | string; resolvedCwd: string }>
+        getDefaultProjectDir: () => Promise<{
+          defaultLabel: string
+          dir: null | string
+          /** Fork: explicit `hermes desktop --cwd` launch directory, or null. */
+          explicitLaunchCwd?: null | string
+          resolvedCwd: string
+        }>
         pickDefaultProjectDir: () => Promise<{ canceled: boolean; dir: null | string }>
         setDefaultProjectDir: (dir: null | string) => Promise<{ dir: null | string }>
       }
@@ -112,6 +118,11 @@ declare global {
       revealPath?: (path: string) => Promise<boolean>
       // Open a DIRECTORY (created if missing) in the OS file manager.
       openDir?: (path: string) => Promise<{ ok: boolean; error?: string }>
+      // The on-disk desktop-plugins door for THIS app instance: a local path
+      // when the primary connection is a remote/cloud gateway, or null when
+      // the backend is local — callers then use the gateway-reported
+      // hermes_home + '/desktop-plugins' instead.
+      desktopPluginsDir?: () => Promise<null | string>
       // Rename a file/folder in place (new base name, same parent dir).
       renamePath?: (path: string, newName: string) => Promise<{ path: string }>
       // Write a small UTF-8 text file (hardened path, parent must exist).
