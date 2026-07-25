@@ -15,7 +15,21 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-07-23 — vendored upstream `de5ece994`
+**Last sync:** 2026-07-25 — vendored upstream `32fd9d65c`
+(647 commits since `de5ece994`). Patch verdicts: **all patches still
+needed** (now including the 2026-07-25 preview-browser-fallback Desktop
+patch, committed to the delta just before this sync). One 3-way conflict:
+the `agent/moa_loop.py` import block (upstream added `re`/`threading`/
+`_futures_wait` alongside a large reference-accounting rework) — resolved
+by unioning imports; the `duration_s`/stats accounting + `_save_moa_metrics`
+hunks landed intact around upstream's interrupted-reference and
+context-trim changes. Upstream still does NOT register shell hooks in the
+dashboard/slash-worker paths and has none of the Desktop patch symbols —
+nothing dropped. No new Python deps (only a `requires_wal` pytest marker);
+no LM Studio-related upstream changes. Targeted tests green in the vendor
+worktree (message-sequence-repair + shell-hooks 102, moa 83).
+
+**Previous sync:** 2026-07-23 — vendored upstream `de5ece994`
 (597 commits since `d7b36070e`). Patch verdicts: **all patches still
 needed** (now including the two 2026-07-21 Desktop patches, committed to the
 delta just before this sync). One 3-way conflict: upstream added a
