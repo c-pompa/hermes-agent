@@ -15,7 +15,15 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-07-25 — vendored upstream `32fd9d65c`
+**Last sync:** 2026-07-25 (second same day) — vendored upstream `78c06525e`
+(5 commits since `32fd9d65c`, all Desktop renderer fixes: stale
+action-handler routing in memoized surfaces / latest-actions adapters).
+Patch verdicts: **all patches still needed**; upstream's changes touch only
+`apps/desktop/src/app/{contrib,session/hooks}` — zero overlap with our
+patched files — and the whole delta applied clean via 3-way
+(`scripts/fork-sync.sh`). No Python or dashboard/LM Studio-relevant changes.
+
+**Previous sync:** 2026-07-25 — vendored upstream `32fd9d65c`
 (647 commits since `de5ece994`). Patch verdicts: **all patches still
 needed** (now including the 2026-07-25 preview-browser-fallback Desktop
 patch, committed to the delta just before this sync). One 3-way conflict:
