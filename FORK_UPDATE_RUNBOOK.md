@@ -307,7 +307,11 @@ Same actions, same order, every release. ~30–60 min when patches apply clean.
 7. **Update the MacBook** (only after the mini is green): `git pull` fork
    main in `~/.hermes/hermes-agent`, then
    `~/.local/bin/uv pip install -e ".[all]" --python .venv/bin/python`;
-   quit/relaunch any `hermes --tui`; relaunch Hermes Desktop.
+   quit/relaunch any `hermes --tui`; relaunch Hermes Desktop. If the Desktop
+   app was rebuilt (`npm run pack`), **re-sign it before relaunching** so
+   macOS TCC approvals survive: `bash ~/hermes-desktop-iac/macos/
+   resign-desktop.sh` (stable "Hermes Local Signing" identity; or resume +
+   run the paused Mac Hermes cron job `3035293b9aae`, then re-pause it).
 8. **Update the Windows desktops** (DESKTOP-39NF657, Pomps): they consume
    the remote gateway, so usually nothing to install — relaunch Hermes
    Desktop so it re-reads the dashboard. If upstream shipped a new Desktop

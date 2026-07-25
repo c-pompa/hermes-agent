@@ -186,15 +186,15 @@ Remote naming (unified 2026-07-23, both Mac and mini):
   Requires the packaged app rebuild (`hermes desktop --build-only`) after
   re-applying.
 - `apps/desktop/electron/main.ts` — **preview "open in browser" falls back to
-  the default http browser (2026-07-25).** `shell.openExternal(file:…)`
-  resolves through the OS handler for the file's *type* and rejects with
-  "No application found to open URL" (macOS LaunchServices) when none is
-  registered — but the button promises a browser. Patch wraps the call: on
-  failure, macOS resolves the default handler for `http://` via
-  `app.getApplicationInfoForProtocol` and opens the file with `open -a`;
-  other platforms retry with `shell.openPath`. Original error is re-thrown
-  if the fallback also fails. Requires the packaged app rebuild
-  (`hermes desktop --build-only`) after re-applying.
+  revealing the file in the file manager (2026-07-25, revised same day).**
+  `shell.openExternal(file:…)` resolves through the OS handler for the
+  file's *type* and rejects with "No application found to open URL" (macOS
+  LaunchServices) when none is registered. A browser can't cover the gap
+  (verified: Safari silently no-ops on handler-less file URLs in every
+  `open -a` form; Chromium just downloads), so on failure the patch logs
+  `[preview] openExternal failed…` to desktop.log and calls
+  `shell.showItemInFolder` — deterministic and cross-platform. Requires the
+  packaged app rebuild (`hermes desktop --build-only`) after re-applying.
 
 ### Skills — only ours (drop-in, low conflict risk)
 - `skills/mlops/models/comfyui/` — remote ComfyUI skill: `queue_workflow.py`,

@@ -1298,28 +1298,11 @@ async function openPreviewInBrowser(rawUrl) {
     } catch (error) {
       // openExternal resolves file: URLs through the OS handler for the file's
       // *type*, and rejects ("No application found to open URL" on macOS) when
-      // none is registered. The button promises a browser, so fall back to the
-      // default http browser rather than surfacing the LaunchServices error.
-      rememberLog(`[preview] openExternal failed for ${fileUrl}: ${error.message}; retrying via default browser`)
-
-      if (process.platform === 'darwin') {
-        const browser = await app.getApplicationInfoForProtocol('http://').catch(() => null)
-
-        if (!browser?.path) {
-          throw error
-        }
-
-        const proc = spawn('open', ['-a', browser.path, localPath], { detached: true, stdio: 'ignore' })
-
-        proc.on('error', () => void 0)
-        proc.unref()
-      } else {
-        const openError = await shell.openPath(localPath)
-
-        if (openError) {
-          throw error
-        }
-      }
+      // none is registered. Browsers can't cover that gap: Safari silently
+      // no-ops on handler-less file URLs and Chromium just downloads them. So
+      // reveal the file in the file manager instead of surfacing the error.
+      rememberLog(`[preview] openExternal failed for ${fileUrl}: ${error.message}; revealing in file manager`)
+      shell.showItemInFolder(localPath)
     }
 
     return true
