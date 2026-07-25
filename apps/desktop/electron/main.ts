@@ -1286,7 +1286,36 @@ async function openPreviewInBrowser(rawUrl) {
       return false
     }
 
-    await shell.openExternal(pathToFileURL(localPath).toString())
+    const fileUrl = pathToFileURL(localPath).toString()
+
+    try {
+      await shell.openExternal(fileUrl)
+    } catch (error) {
+      // openExternal resolves file: URLs through the OS handler for the file's
+      // *type*, and rejects ("No application found to open URL" on macOS) when
+      // none is registered. The button promises a browser, so fall back to the
+      // default http browser rather than surfacing the LaunchServices error.
+      rememberLog(`[preview] openExternal failed for ${fileUrl}: ${error.message}; retrying via default browser`)
+
+      if (process.platform === 'darwin') {
+        const browser = await app.getApplicationInfoForProtocol('http://').catch(() => null)
+
+        if (!browser?.path) {
+          throw error
+        }
+
+        const proc = spawn('open', ['-a', browser.path, localPath], { detached: true, stdio: 'ignore' })
+
+        proc.on('error', () => void 0)
+        proc.unref()
+      } else {
+        const openError = await shell.openPath(localPath)
+
+        if (openError) {
+          throw error
+        }
+      }
+    }
 
     return true
   }
