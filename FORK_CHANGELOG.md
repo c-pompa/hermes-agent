@@ -235,6 +235,122 @@ Remote naming (unified 2026-07-23, both Mac and mini):
   misleading file suffix. Landed in commit `79c1408c6`, which also carried a
   vendored upstream sync — isolate this hunk when re-applying.
 
+## Environment / ops notes (NOT in the fork repo — re-apply by hand)
+
+- **2026-07-27 — LM Studio 0.4.20 + fleet model policy.** Updating LM Studio
+  unloads all models on that host; afterwards reload per the placement policy
+  below and verify `lms ps` + `curl 127.0.0.1:8867/router/status`.
+  - **One large model per host.** MBP = `qwen3.6-35b-a3b-uncensored-genesis-hermes-v5`
+    ONLY. Pomps = cerebras coder first, 27b optionally after. Mini = gemma MLX.
+    Two large models resident on the MBP (~39 GB+) caused repeated memory-pressure
+    crashes — if the MBP crashes, `lms ps` first: >1 large model on `Local` is
+    the smoking gun.
+  - **MBP LM Link preferred device = Pomps** (`lms link set-preferred-device
+    1e0a90e866f8d3ba629da3c90c735234`). cerebras + the 27b exist on disk on BOTH
+    MBP and Pomps; without this, `lms load <model> -y` from the MBP can pick the
+    LOCAL copy (it did, mid-incident). Genesis/gemma are single-device and
+    unaffected.
+  - **cerebras load params:** `lms load cerebras_qwen3-coder-reap-25b-a3b
+    --parallel 3 -c 65536` (was 262144 ctx × parallel 4 — KV cache larger than
+    the weights). parallel 3 matches `delegation.max_concurrent_children`.
+  - **`hermes/moa-ref-b` is unloaded BY POLICY** (cerebras-only on Pomps), not
+    by accident — router resolving it to `None` is expected; MoA runs 2 voices.
+    Restore with `lms load qwen3.6-27b-uncensored-hauhaucs-aggressive -y`.
+- **2026-07-27 — compression threshold fix (mini profiles).** `hitl-v1` and
+  `homelab` profile `config.yaml`s: `threshold_tokens` 40000→**60000**,
+  `protect_last_n` 10→**6**. The post-compression floor (system prompt + tool
+  schemas + summary + protected tail) measured ~41k tokens — above the old 40k
+  threshold, so compression could never succeed and was declared "ineffective"
+  after 2 tries, then blocked (killed desktop session `20260727_141845_4a560e`:
+  context sat at 46–66k, model truncated/thrashed, client gave up mid-stream).
+  These profile configs live on the MINI (`~/.hermes/profiles/*/config.yaml`),
+  are NOT tracked in the fork, and must be re-applied if the profiles are ever
+  rebuilt. Backups: `config.yaml.bak.20260727-threshold` per profile. Restart
+  `ai.hermes.dashboard.<profile>` after editing.
+- **2026-07-27 — turn budget, delegation + MoA router alignment, tool-output
+  trims (mini profiles).** Session `20260727_162450_e2b26b` hard-stopped at
+  `api_calls=90/90` mid-tool-loop (per-turn budget, NOT context).
+  - `agent.max_turns` 90→**150** in both mini profiles + MBP
+    `~/.hermes/config.yaml` (MBP copy applies on next natural restart).
+  - **hitl-v1 delegation** pointed at the policy-unloaded 27b (would fail or
+    JIT-load it); now `hermes/subagent-coder` via a new `model-router`
+    provider (`127.0.0.1:8867/v1`) — the mini runs its own router instance
+    with the same role map. Subagents = cerebras @ Pomps; MoA voices stay on
+    MBP/mini — the two features never contend.
+  - **hitl-v1 MoA** was stale (`default_preset: test`, voices = 27b +
+    distilled 35b, both unloaded — the distilled one would JIT-load as a
+    SECOND large model on the MBP = crash condition). Added the `lan` preset
+    (router roles `hermes/moa-ref-a/b/c`, agg `hermes/moa-agg`, mirrors the
+    MBP config) and set `default_preset: lan`. Old test/default presets kept
+    for explicit use only. homelab has no `moa:` section — nothing to align.
+  - **`tool_output`** (already present with defaults): `max_bytes`
+    50000→**30000**, `max_lines` 2000→**800** — slows context growth so the
+    150-call budget stretches further.
+  - Backups: `config.yaml.bak.20260727-turns` per profile. Verified: both
+    dashboards restarted stable; `hermes/subagent-coder`, `hermes/moa-ref-a`,
+    `hermes/moa-agg` all HTTP 200 via the mini's router.
+- **2026-07-27 — mini MAIN config aligned + metrics dashboard fixes.**
+  - Mini `~/.hermes/config.yaml` (gateway/API + cron): `max_turns` 90→150,
+    `threshold_tokens: 60000` added (was ratio-only). Backup
+    `config.yaml.bak.20260727-mainalign`; gateway + main dashboard restarted.
+  - **env_mode (`~/hermes-metrics-dash/env_mode.py` + `scripts/
+    env_mode_remote_apply.py`)** was pre-router and dangerous: rewrote
+    optimized-moa to drop the `provider: moa` / `moa://local` hack (now just
+    enables MoA with `default_preset: lan`, max_tokens 4096,
+    protect_last_n 6), SINGLE_MODEL_ID distilled-35b→genesis (single-model
+    mode would have JIT-loaded a 2nd large model on the MBP = crash
+    condition), max_turns 90/30→150 everywhere, restore fallbacks updated.
+    Both files kept in sync per their own NOTE. Backups `*.bak.20260727-dashfix`.
+  - **Dashboard Health rules now dynamic:** new `GET /api/compression-config`
+    (app.py) reads `threshold_tokens` live from mini main + profile configs;
+    `static/compression.html` consumes it (fallback 60000). The old hardcoded
+    40000 constant caused false "0 compactions" alarms after the threshold
+    change.
+  - **Graph colors:** `--s5` slot was purple/light-purple, too close to
+    `--s1` blue — changed to yellow/olive (`#7a6d00` light, `#d6c53a` dark)
+    in `static/index.html` (all 3 theme blocks).
+  - Forwarder topology verified healthy: mini ingests direct, MBP ships via
+    `ai.hermes.metricsfwd` (METRICS_DASH_URL http://10.88.1.208:8899).
+    Pomps forwarder down since 2026-07-25 — needs restart on the Windows side.
+  - **Pomps forwarder fixed (same day, later):** `HermesMetricsForwarder`
+    scheduled task (user `pompa@10.88.1.235` — SSH works; ICMP + `:1234` are
+    firewalled, use ssh not ping/curl) had died 7/25 at logoff
+    (`0xC000013A`) and never restarted — LogonTrigger only, no restart-on-
+    failure, and a 72h `ExecutionTimeLimit` that would keep killing it.
+    Started the task, set `ExecutionTimeLimit=PT0S` (unlimited) +
+    `RestartCount=3`/`RestartInterval=PT1M`. `Pomps` `host_stats` +
+    `pool_status` records flowing again. Launcher:
+    `%USERPROFILE%\.hermes\logs\run-metricsfwd.cmd` (env:
+    METRICS_DASH_URL=http://10.88.1.208:8899, METRICS_HOST_LABEL=Pomps).
+- **2026-07-27 (late) — hitl-v1 data recovery + in-place compression.**
+  - `hitl.db` (on mini `/Volumes/SSD_2/.../hitl-v1/data/`) was found with ALL
+    tables at 0 rows after the multi-tenancy session work (file written
+    19:35, cause of deletion unidentified — the ALTER-based tenant migration
+    is provably innocent). Rows were still in freelist pages: recovered via
+    sqlite `.recover` → `lost_and_found` fragments → rebuilt DB with
+    **251 documents** (re-derived from `data/documents/` folders, sha256
+    recomputed), **39 templates** (regions JSON intact), **48 extractions**,
+    1 default tenant. Backups: `hitl.db.bak.20260727-prerecovery` (original
+    damaged file) + `hitl.db.empty-20260727` (the empty schema shell);
+    salvage db at `/tmp/hitl_recovered.db` on the mini (ephemeral).
+    14 folders lacked original.pdf; 13 recovered extractions reference docs
+    no longer on disk.
+  - Session work was committed: branch `feat/multi-tenancy-event-pipeline`
+    (`21904ee`, 66 files) — had been entirely uncommitted on main. NOTE:
+    `tmp/` scratch files (session dumps, uvicorn log) got swept into the
+    commit; prune in a follow-up if unwanted. A stale `.git/index.lock`
+    (0 bytes, 2026-07-26) was removed to unblock git.
+  - **Root cause of the "looping branch":** compression handoffs with
+    `in_place: false` mint a new session per compression; each successor
+    re-derived the same DB hypothesis ("let me dig deeper" ×12) — text-level
+    loops are NOT caught by tool-loop guardrails. Fix applied:
+    `compression.in_place: true` in BOTH profiles (hitl-v1:161,
+    homelab:156) so investigations keep one session and their state;
+    dashboards restarted.
+  - Reminder: `SSD_2` is a LOCAL drive on the mini; the MBP only sees it via
+    SMB — when the MBP mount drops, "missing data" is a display artifact,
+    sessions on the mini are unaffected.
+
 ## Source commits (ahead of upstream/main, oldest → newest)
 
 - `4949b5929` feat(skills): add ComfyUI remote skill (mlops/models/comfyui)
