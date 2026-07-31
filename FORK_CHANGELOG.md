@@ -256,6 +256,8 @@ Remote naming (unified 2026-07-23, both Mac and mini):
   `upload_model.sh`, `SKILL.md`, plus realistic + anime example workflows.
 - `skills/creative/i2v-landscape-animation/` — I2V landscape skill + the
   `i2v_landscape.py` convenience script.
+- `skills/devops/homelab-jobs/` — homelab jobs inventory + audit skill
+  (launchd/schtasks/hermes-cron across all machines; added 2026-07-31).
 
 ### Skills — additive files on an upstream skill (reconciled 2026-06-30)
 - `skills/creative/comfyui/` (exists upstream) — our **additive-only** files:

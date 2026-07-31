@@ -32,7 +32,7 @@ haven't.
 3. **The homelab delta is a small, fixed set of additive files** overlaid on
    every snapshot. Source of truth is whatever `git diff --name-only` reports
    between an upstream base and our fork `main` (Section 3). As of this writing
-   it is **16 additive files** (skills/CI/docs/scripts) **plus the code-patch set**
+   it is **17 additive entries** (skills/CI/docs/scripts) **plus the code-patch set**
    documented in `FORK_CHANGELOG.md` §"Core code patches".
 
 4. **The mini CANNOT push/fetch gitlab over SSH.** Its credential lives in the
@@ -79,6 +79,7 @@ HERMES.md
 .gitlab-ci.yml
 scripts/fork-sync.sh                                           # snapshot builder (§4)
 scripts/fork-auto-update.sh                                    # daily prepare+notify job (§9a)
+skills/devops/homelab-jobs/                                    # jobs inventory + audit skill
 skills/mlops/models/comfyui/                                   # whole dir (ours only)
 skills/creative/i2v-landscape-animation/                       # whole dir (ours only)
 skills/creative/comfyui/scripts/i2v_landscape.py              # 3 i2v files added to an
