@@ -67,7 +67,15 @@ NEW=$(git rev-parse "$UPSTREAM_REMOTE/main")
 
 if [ "$NEW" = "$BASE" ]; then
   log "up to date (BASE=$BASE)"
-  write_status "up-to-date"
+  # Still smoke-verify the live fleet daily — catches drift/wipes even when
+  # there is no upstream movement.
+  FV_STATE="pass"
+  if [ -x "$REPO/scripts/fork-verify-fleet.sh" ]; then
+    "$REPO/scripts/fork-verify-fleet.sh" >> "$LOG" 2>&1 || FV_STATE="fail"
+    log "fleet verify: $FV_STATE"
+  fi
+  write_status "up-to-date" "\"fleet_verify\": \"$FV_STATE\""
+  [ "$FV_STATE" = "fail" ] && notify "fleet verify FAILED" "live fleet smoke check failed — see fork-auto-update.log"
   exit 0
 fi
 
@@ -123,12 +131,32 @@ fi
 
 if [ $trc -eq 0 ]; then
   log "READY: snapshot of $NEW + delta applies clean, targeted tests pass"
-  write_status "ready-for-review" "\"new_commits\": $COUNT"
-  notify "ready for review" "$COUNT new upstream commits vendored clean in $WT — tests pass. Finish runbook §4 step 5."
+  EXTRA="\"new_commits\": $COUNT"
+  STATE="ready-for-review"
 else
   log "TESTS FAILED (exit $trc) in $WT"
-  write_status "tests-failed" "\"new_commits\": $COUNT,
+  EXTRA="\"new_commits\": $COUNT,
   \"pytest_exit\": $trc"
+  STATE="tests-failed"
+fi
+
+# Fleet smoke verification of the LIVE deployment (gateway, dashboards,
+# metrics :8899 feature surfaces, hitl-v1 data sanity). Independent of the
+# snapshot result — runs every time so drift is caught daily.
+FV_STATE="pass"
+if [ -x "$REPO/scripts/fork-verify-fleet.sh" ]; then
+  "$REPO/scripts/fork-verify-fleet.sh" >> "$LOG" 2>&1 || FV_STATE="fail"
+  log "fleet verify: $FV_STATE"
+fi
+
+write_status "$STATE" "$EXTRA,
+  \"fleet_verify\": \"$FV_STATE\""
+
+if [ "$STATE" = "ready-for-review" ] && [ "$FV_STATE" = "pass" ]; then
+  notify "ready for review" "$COUNT new upstream commits vendored clean in $WT — tests + fleet verify pass. Finish runbook §4 step 5."
+elif [ "$FV_STATE" = "fail" ]; then
+  notify "fleet verify FAILED" "snapshot: $STATE; live fleet smoke check failed — see fork-auto-update.log"
+elif [ "$STATE" != "ready-for-review" ]; then
   notify "tests failed" "snapshot builds but targeted pytest failed — see fork-auto-update.log"
 fi
 exit 0

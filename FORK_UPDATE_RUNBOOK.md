@@ -229,6 +229,15 @@ delta dirs exist. The gateway `error.log` will show a `SIGTERM` + maybe an
 `httpx.RemoteProtocolError` from the *old* instance shutting down — that's
 expected from the restart, not a failure.
 
+**Fleet smoke check (run after every deploy, from the MBP):**
+`~/.hermes/hermes-agent/scripts/fork-verify-fleet.sh` — verifies gateway
+`:8642/health`, dashboards `:9119/:9121/:9122`, the metrics dashboard `:8899`
+feature surfaces (overview `/api/about`/`usage-map`/`recent`/`session-names`,
+benchmark `/api/benchmark/*`, events `/api/hitl-events`, findings, env-mode),
+and data freshness (`requests.jsonl` advancing, hitl-v1 `documents` > 0).
+Exit 0 = all green; any FAIL must be resolved before moving on to clients.
+`fork-auto-update.sh` also runs it daily against the live fleet.
+
 > Note: `hermes --version` prints `upstream <parent> · local <tip> (+N carried
 > commit)`. The "upstream" field is just the snapshot's **parent commit** in the
 > fork's linear history — it is NOT the upstream release. Trust the

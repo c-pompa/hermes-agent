@@ -32,6 +32,7 @@ ADDITIVE=(
   skills/creative/comfyui/workflows/wanvideo-i2v-landscape.meta.json
   scripts/fork-sync.sh
   scripts/fork-auto-update.sh
+  scripts/fork-verify-fleet.sh
   skills/devops/homelab-jobs
 )
 # Upstream-owned files carrying our code patches (see FORK_CHANGELOG.md §"Core
