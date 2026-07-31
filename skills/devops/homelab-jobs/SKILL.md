@@ -58,6 +58,15 @@ Manage: `launchctl print gui/$(id -u)/<label>` ·
 | `ai.hermes.hitlfwd` | hitl-v1 SSE → metricsdash forwarder (`:8010/api/events` → `:8899/ingest`) | — |
 | `ai.hermes.healthdigest` | Health digest | — |
 
+Also on the mini, **hitl-v1** (document OCR, `:8010`,
+`/Volumes/SSD_2/XCode_Repos/myprojects/hitl-v1`) runs **nohup via sshd**, NOT
+launchd — macOS TCC denies launchd agents access to `/Volumes/SSD_2`
+(`PermissionError` on `.venv/pyvenv.cfg`; tried 2026-07-31). It does not
+survive a mini reboot: restart with
+`cd /Volumes/SSD_2/XCode_Repos/myprojects/hitl-v1 && nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8010 >> /tmp/hitl-8010.log 2>&1 &`.
+Its `data/hitl.db` was found wiped twice (2026-07-27/28) — audit step 5
+watches for a third time.
+
 Logs: `~/.hermes/logs/`. Verify: `curl -s -o/dev/null -w '%{http_code}' http://127.0.0.1:<port>/health` (or `/`).
 
 ## Mac mini — hermes cron (`~/.hermes/cron/jobs.json`)

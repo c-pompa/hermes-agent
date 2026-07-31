@@ -397,6 +397,22 @@ Remote naming (unified 2026-07-23, both Mac and mini):
     `tmp/` scratch files (session dumps, uvicorn log) got swept into the
     commit; prune in a follow-up if unwanted. A stale `.git/index.lock`
     (0 bytes, 2026-07-26) was removed to unblock git.
+  - **2026-07-31 follow-up:** the rebuilt db never actually landed — live
+    `data/hitl.db` was again an empty shell (wiped 07-28 23:31, cause still
+    unknown; freelist clean, likely VACUUMed). Rebuilt a second time
+    (`/tmp/hitl_rebuild.py`, re-runnable): **3,831 documents** (incl. the
+    07-27/28 upload flood lost in the second wipe — 2,810 <1KB stub PDFs,
+    635 image uploads saved as `original.jpg/png`, 28 real PDFs; trim with
+    `DELETE FROM documents WHERE uploaded_at >= 1785206400;` → 265 docs if
+    unwanted), 39 templates + 48 extractions from the prerecovery freelist
+    (4/91 rows unrecoverable-corrupt; 3 test extractions with dangling
+    refs). Swapped into `data/hitl.db` (empty shell kept as
+    `hitl.db.empty-20260731-preswap`), app restarted — documents + history
+    back in the UI, and 3,879 events backfilled into metrics-dash
+    `hitl_events` so :8899 `#/events` has history. Supervision: launchd
+    CANNOT run it (TCC denies launchd agents access to /Volumes/SSD_2 —
+    `PermissionError` on `pyvenv.cfg`); runs nohup via sshd context like
+    before. Watch: fork-verify-fleet.sh now FAILs if documents count = 0.
   - **Root cause of the "looping branch":** compression handoffs with
     `in_place: false` mint a new session per compression; each successor
     re-derived the same DB hypothesis ("let me dig deeper" ×12) — text-level
