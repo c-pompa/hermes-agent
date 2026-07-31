@@ -113,7 +113,7 @@ EXISTING=()
 for t in "${TESTS[@]}"; do [ -f "$WT/$t" ] && EXISTING+=("$t"); done
 
 if "$UV" venv "$WT/.venv" >> "$LOG" 2>&1 \
-  && "$UV" pip install -e ".[all]" --python "$WT/.venv/bin/python" >> "$LOG" 2>&1; then
+  && "$UV" pip install -e ".[all,dev]" --python "$WT/.venv/bin/python" >> "$LOG" 2>&1; then
   ( cd "$WT" && ./.venv/bin/python -m pytest "${EXISTING[@]}" -q ) >> "$LOG" 2>&1
   trc=$?
 else
