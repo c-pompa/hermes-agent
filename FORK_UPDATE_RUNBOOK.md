@@ -32,7 +32,7 @@ haven't.
 3. **The homelab delta is a small, fixed set of additive files** overlaid on
    every snapshot. Source of truth is whatever `git diff --name-only` reports
    between an upstream base and our fork `main` (Section 3). As of this writing
-   it is **15 additive files** (skills/CI/docs) **plus the code-patch set**
+   it is **16 additive files** (skills/CI/docs/scripts) **plus the code-patch set**
    documented in `FORK_CHANGELOG.md` §"Core code patches".
 
 4. **The mini CANNOT push/fetch gitlab over SSH.** Its credential lives in the
@@ -78,6 +78,7 @@ FORK_CHANGELOG.md
 HERMES.md
 .gitlab-ci.yml
 scripts/fork-sync.sh                                           # snapshot builder (§4)
+scripts/fork-auto-update.sh                                    # daily prepare+notify job (§9a)
 skills/mlops/models/comfyui/                                   # whole dir (ours only)
 skills/creative/i2v-landscape-animation/                       # whole dir (ours only)
 skills/creative/comfyui/scripts/i2v_landscape.py              # 3 i2v files added to an
@@ -92,6 +93,9 @@ are ours too — they appear in the `diff --name-only` list above.) **Since the
 `hermes_cli/web_server.py`, `tui_gateway/slash_worker.py`,
 `agent/agent_runtime_helpers.py`, `agent/conversation_loop.py`,
 `tests/run_agent/test_message_sequence_repair.py`, `hermes_cli/main.py`,
+`agent/tool_guardrails.py`, `tests/agent/test_tool_guardrails.py`,
+`tools/session_search_tool.py`, `tui_gateway/ws.py`,
+`tests/tools/test_session_search.py`,
 and the desktop set `apps/desktop/electron/{main,preload}.ts`,
 `apps/desktop/src/store/session.ts`, `apps/desktop/src/global.d.ts`,
 `apps/desktop/src/contrib/runtime-loader.ts`,
@@ -320,6 +324,24 @@ Same actions, same order, every release. ~30–60 min when patches apply clean.
 9. **Bookkeeping.** `FORK_CHANGELOG.md` "Last sync" (ships in the snapshot),
    the version line in `hermes-desktop-iac/ARCHITECTURE.md`, and report any
    config drift (new optional `.env` keys, validator warnings) to the user.
+
+---
+
+## 9a. Daily prepare + notify job (installed 2026-07-31)
+
+`scripts/fork-auto-update.sh` runs on the Mac via LaunchAgent
+`~/Library/LaunchAgents/com.cpompa.hermes-fork-sync.plist` (daily, off-peak;
+logs `~/.hermes/logs/fork-auto-update.log`). It fetches upstream, scans fork
+history for the last `vendor upstream <sha>` to get BASE, and when upstream
+has moved it builds a candidate snapshot in `/tmp/hermes-vendor` (via
+`fork-sync.sh`) and runs the targeted test set. **It never commits, pushes,
+or deploys** — it writes `~/.hermes/fork-update-status.json`
+(`up-to-date` / `ready-for-review` / `needs-manual-resolution` /
+`tests-failed` / `pending-review-exists`) and posts a macOS notification
+when action is needed. On `ready-for-review`, finish §4 step 5 onward; on
+`needs-manual-resolution`, resolve conflicts in the worktree upstream-first
+(§9 step 2) and continue. It skips the run if `/tmp/hermes-vendor` already
+exists (a previous candidate is still pending review).
 
 ---
 

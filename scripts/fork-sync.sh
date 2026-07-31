@@ -31,6 +31,7 @@ ADDITIVE=(
   skills/creative/comfyui/workflows/wanvideo-i2v-landscape.md.json
   skills/creative/comfyui/workflows/wanvideo-i2v-landscape.meta.json
   scripts/fork-sync.sh
+  scripts/fork-auto-update.sh
 )
 # Upstream-owned files carrying our code patches (see FORK_CHANGELOG.md §"Core
 # code patches"). Re-applied by 3-way apply; conflicts resolve upstream-first.
@@ -45,6 +46,9 @@ PATCH_FILES=(
   apps/desktop/src/store/session.ts apps/desktop/src/global.d.ts
   apps/desktop/src/contrib/runtime-loader.ts
   apps/desktop/src/app/settings/plugins-settings.tsx
+  agent/tool_guardrails.py tests/agent/test_tool_guardrails.py
+  tools/session_search_tool.py tui_gateway/ws.py
+  tests/tools/test_session_search.py
 )
 
 cd "$REPO"
@@ -54,8 +58,8 @@ git fetch "$FORK_REMOTE" --quiet
 
 BASE="${2:-}"
 if [ -z "$BASE" ]; then
-  BASE=$(git log -1 --format=%B "$FORK_REMOTE/main" \
-    | grep -oE 'vendor upstream ([0-9a-f]{40})' | grep -oE '[0-9a-f]{40}' || true)
+  BASE=$(git log -20 --format=%B "$FORK_REMOTE/main" \
+    | grep -oE 'vendor upstream ([0-9a-f]{40})' | head -1 | grep -oE '[0-9a-f]{40}' || true)
 fi
 [ -n "$BASE" ] || { echo "ERROR: cannot determine BASE — pass it as arg 2"; exit 1; }
 NEW=$(git rev-parse "$TARGET")
