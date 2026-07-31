@@ -15,7 +15,31 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-07-25 (second same day) — vendored upstream `78c06525e`
+**Last sync:** 2026-07-31 — vendored upstream `126ff7071`
+(1,867 commits since `78c06525e`; v2026.7.30+8). Patch verdicts:
+**one patch DROPPED** — the local desktop-plugins door (2026-07-21) is
+now native upstream in a superior form (#66899, `e614876c6` +
+`eaecca4a7`: always-local, profile-aware `hermes:fs:desktopPluginsRoot`);
+`preload.ts`, `runtime-loader.ts`, `plugins-settings.tsx` are
+byte-identical to upstream again. Everything else **still needed**;
+three areas needed conflict ports (upstream touched ALL 19 patched
+files): tool_guardrails (upstream added its own orthogonal per-turn
+`LoopCapConfig` loop caps — both kept; restored the `dataclasses.field`
+import our hunk dropped; upstream's old-behavior test replaced with our
+3 regression tests), gateway/run.py (upstream's new `vercel_runtime`
+map key folded into our hoisted `_TERMINAL_CONFIG_ENV_MAP`), and the
+session_search/message-sequence test files (upstream test-prune waves
+had deleted our hunks' anchor tests — ported our tests only, did NOT
+resurrect pruned upstream tests). fork-sync.sh `PATCH_FILES` was
+extended first with the post-2026-07-25 patch files (tool_guardrails,
+session_search, ws) that it would otherwise have silently dropped.
+Targeted tests green in the vendor worktree: **406 passed**
+(message-sequence-repair, tool_guardrails, session_search, moa-trace,
+shell-hooks, tui_gateway ws + slash-worker suites). No LM
+Studio-relevant upstream changes except `8c12fa7cf` (respect applied
+runtime context) — no action needed.
+
+**Previous sync:** 2026-07-25 (second same day) — vendored upstream `78c06525e`
 (5 commits since `32fd9d65c`, all Desktop renderer fixes: stale
 action-handler routing in memoized surfaces / latest-actions adapters).
 Patch verdicts: **all patches still needed**; upstream's changes touch only
@@ -172,19 +196,19 @@ Remote naming (unified 2026-07-23, both Mac and mini):
 - `apps/desktop/electron/main.ts` + `preload.ts` +
   `apps/desktop/src/contrib/runtime-loader.ts` +
   `apps/desktop/src/app/settings/plugins-settings.tsx` +
-  `apps/desktop/src/global.d.ts` — **local desktop-plugins door on a remote
-  gateway (2026-07-21).** Disk plugins are UI extensions loaded into THIS
-  renderer, but upstream resolves the plugins dir from
-  `getStatus().hermes_home` — with a remote gateway that is the REMOTE
-  host's home, so local fs ops fail (EACCES walking to
-  `/Users/<remote-user>`) and files dropped there would never load anyway.
-  Patch: main adds a `hermes:desktopPluginsDir` IPC (returns the LOCAL
-  `HERMES_HOME/desktop-plugins` when the connection mode is remote, null
-  for local backends); renderer `resolveDiskPluginsDir()` prefers it, with
-  the gateway-reported home as the local-backend fallback; used by both the
-  disk-plugin scanner and the Settings "reveal plugins folder" button.
-  Requires the packaged app rebuild (`hermes desktop --build-only`) after
-  re-applying.
+  `apps/desktop/src/global.d.ts` — **local desktop-plugins door on a
+  remote gateway (2026-07-21) — DROPPED 2026-07-31 (fixed upstream).**
+  Upstream shipped a strictly better native fix as #66899 (`e614876c6`
+  "resolve local plugin root independent of remote backend" +
+  `eaecca4a7` profile-aware follow-up): a main-process
+  `hermes:fs:desktopPluginsRoot` IPC that is always-local and
+  profile-aware (`profiles/<name>/desktop-plugins`), wired into the
+  disk-plugin scanner, `startDirWatch`, and the Settings reveal button,
+  with regression tests in `runtime-loader.test.ts`. Our
+  `hermes:desktopPluginsDir` IPC + `resolveDiskPluginsDir()` are gone;
+  `preload.ts`, `runtime-loader.ts`, and `plugins-settings.tsx` are
+  byte-identical to upstream. Do NOT re-apply; verify on each sync that
+  upstream's resolver remains.
 - `apps/desktop/electron/main.ts` — **preview "open in browser" falls back to
   revealing the file in the file manager (2026-07-25, revised same day).**
   `shell.openExternal(file:…)` resolves through the OS handler for the
@@ -195,6 +219,37 @@ Remote naming (unified 2026-07-23, both Mac and mini):
   `[preview] openExternal failed…` to desktop.log and calls
   `shell.showItemInFolder` — deterministic and cross-platform. Requires the
   packaged app rebuild (`hermes desktop --build-only`) after re-applying.
+- `agent/tool_guardrails.py` + `tests/agent/test_tool_guardrails.py` —
+  **no-progress loop guard applies to ALL tools (2026-07-29, commit
+  `9a69ed84e`).** Upstream's no-progress detector (identical args +
+  identical result) only ran for a hardcoded allowlist of read-only tools,
+  so a loop of successful identical terminal commands (same command, same
+  exit-0 output) never tripped the guardrail (live incident 2026-07-29,
+  session `20260729_184140_4fa3e6`: 45 tool turns before manual abort).
+  Patch: track all tools uniformly, drop the idempotent/mutating taxonomy;
+  streak still resets on any changed result (legit polling unaffected);
+  decision codes renamed `idempotent_no_progress_*` → `no_progress_*`
+  (config keys keep the old names for backward compat). **2026-07-31 port
+  note:** upstream added its own per-turn `LoopCapConfig` loop caps —
+  orthogonal, both kept; upstream also pruned this test file and kept one
+  old-behavior test (`..._not_blocked_for_repeated_identical_success_output...`)
+  which our 3 regression tests replace. Watch both regions on each sync.
+- `tui_gateway/ws.py` + `tools/session_search_tool.py` +
+  `tests/tools/test_session_search.py` — **dead-peer detection +
+  compaction-summary anchor demotion (2026-07-27, commit `ebf759812`).**
+  `ws.py` sets SO_KEEPALIVE (30s idle / 10s interval / 3 probes) on
+  websocket sockets: a silently-dropped client (SSH tunnel reset, client
+  sleep) left the TCP leg half-open forever, `receive_text()` blocked
+  indefinitely, and disconnect teardown (detach, orphan reap, resume
+  replay) never ran. `session_search_tool.py` `_summaries_last` demotes
+  compaction-summary FTS hits to the end of discovery results — a summary
+  recaps the whole session, matches nearly any keyword, and swallowed the
+  single per-lineage drill-down anchor so agents never reached the actual
+  work messages (demote-not-exclude: summaries still anchor as last
+  resort). **2026-07-31 port note:** upstream's test-prune waves deleted
+  our tests' anchor context; our tests are appended, pruned upstream tests
+  NOT resurrected. Upstream's `_scroll` rework (`b93fd077c`) is adjacent
+  but does not cover demotion — patch stays.
 
 ### Skills — only ours (drop-in, low conflict risk)
 - `skills/mlops/models/comfyui/` — remote ComfyUI skill: `queue_workflow.py`,
