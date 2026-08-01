@@ -4294,6 +4294,75 @@ class TestRunConversation:
         assert result["final_response"] == "Part 1 Part 2"
         assert requested_caps == [65536, 65536]
 
+    def test_length_reasoning_only_turn_persisted_with_placeholder(self, agent):
+        """Reasoning-only truncated turn must not persist as wire-empty.
+
+        A finish_reason='length' response with reasoning but EMPTY content
+        used to persist an interim assistant message with content="".  On
+        every later request the wire copy had the reasoning stripped (non-
+        DeepSeek/Kimi reasoning policy) and repair_empty_non_final_messages
+        healed the empty turn per-call — re-logging a WARNING on every API
+        call for the rest of the session.  The interim message must now be
+        persisted with the same "[response interrupted]" placeholder the
+        send-boundary repair substitutes.
+        """
+        self._setup_agent(agent)
+        first = _mock_response(
+            content="",
+            finish_reason="length",
+            reasoning="I was still reasoning when the output budget ran out",
+        )
+        second = _mock_response(content="Final answer", finish_reason="stop")
+        agent.client.chat.completions.create.side_effect = [first, second]
+
+        with (
+            patch.object(agent, "_persist_session"),
+            patch.object(agent, "_save_trajectory"),
+            patch.object(agent, "_cleanup_task_resources"),
+        ):
+            result = agent.run_conversation("hello")
+
+        assert result["completed"] is True
+        assert result["api_calls"] == 2
+
+        from agent.agent_runtime_helpers import _INTERRUPTED_PLACEHOLDER
+
+        interim = next(
+            m for m in result["messages"]
+            if m.get("role") == "assistant" and m.get("finish_reason") == "length"
+        )
+        assert interim["content"] == _INTERRUPTED_PLACEHOLDER
+        assert interim["reasoning"]
+
+        # The continuation request must not carry a wire-empty assistant turn.
+        # (The wire copy strips internal fields like finish_reason/reasoning,
+        # so match the sole assistant turn by role.)
+        second_call_messages = agent.client.chat.completions.create.call_args_list[1].kwargs["messages"]
+        interim_on_wire = next(
+            m for m in second_call_messages if m.get("role") == "assistant"
+        )
+        assert interim_on_wire["content"] == _INTERRUPTED_PLACEHOLDER
+
+    def test_length_partial_content_turn_unaffected_by_placeholder_fix(self, agent):
+        """Truncated turns WITH visible content keep their real content."""
+        self._setup_agent(agent)
+        first = _mock_response(content="Part 1 ", finish_reason="length")
+        second = _mock_response(content="Part 2", finish_reason="stop")
+        agent.client.chat.completions.create.side_effect = [first, second]
+
+        with (
+            patch.object(agent, "_persist_session"),
+            patch.object(agent, "_save_trajectory"),
+            patch.object(agent, "_cleanup_task_resources"),
+        ):
+            result = agent.run_conversation("hello")
+
+        interim = next(
+            m for m in result["messages"]
+            if m.get("role") == "assistant" and m.get("finish_reason") == "length"
+        )
+        assert interim["content"] == "Part 1"
+
     def test_ollama_glm_stop_after_tools_without_terminal_boundary_requests_continuation(self, agent):
         """Ollama-hosted GLM responses can misreport truncated output as stop."""
         self._setup_agent(agent)
