@@ -2935,6 +2935,25 @@ def run_conversation(
                             )
                             if not _is_empty_partial_stub:
                                 interim_msg = agent._build_assistant_message(assistant_message, finish_reason)
+                                # A length-truncated turn that produced
+                                # reasoning but no visible content would
+                                # persist as {"content": "", "reasoning": ...}.
+                                # On every later request the wire copy has the
+                                # reasoning stripped (non-DeepSeek/Kimi/MiMo
+                                # reasoning policy) and the empty turn is healed
+                                # per-call by repair_empty_non_final_messages —
+                                # re-logging a WARNING on every API call for the
+                                # rest of the session, and leaving the turn
+                                # permanently wire-empty in stored history.
+                                # Persist the same placeholder the send-boundary
+                                # repair would substitute so the stored
+                                # transcript is never wire-empty.  The general
+                                # "repair at the send boundary" design is
+                                # unchanged; this only stops WRITING a new
+                                # poisoned turn in the first place.
+                                if not interim_msg.get("content") and interim_msg.get("reasoning"):
+                                    from agent.agent_runtime_helpers import _INTERRUPTED_PLACEHOLDER
+                                    interim_msg["content"] = _INTERRUPTED_PLACEHOLDER
                                 messages.append(interim_msg)
                                 if assistant_message.content:
                                     truncated_response_parts.append(assistant_message.content)
