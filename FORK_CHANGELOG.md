@@ -250,6 +250,24 @@ Remote naming (unified 2026-07-23, both Mac and mini):
   our tests' anchor context; our tests are appended, pruned upstream tests
   NOT resurrected. Upstream's `_scroll` rework (`b93fd077c`) is adjacent
   but does not cover demotion — patch stays.
+- `tools/file_tools.py` + `tests/tools/test_file_read_guards.py` —
+  **read_file dedup re-serve instead of hard BLOCK (2026-08-01).** The
+  issue-#15759 stub-loop guard escalated the 2nd dedup stub-hit to
+  `tool_error("BLOCKED … your earlier result is still current")` — false in
+  long sessions, where context hygiene had already trimmed that earlier
+  read from the model's prompt. The model needed the content, was told it
+  had it, retried, and each BLOCK counted as an exact-failure until
+  `tool_loop_guardrails.hard_stop_after.exact_failure` killed the turn
+  (live incident: session `20260801_025055_eb38d2`, 7.19M input tokens /
+  273 msgs vs 64k ctx). Patch: on `hits >= 2` fall through to the normal
+  read path and re-serve the content with `re_served: true` + actionable
+  note (region + next offset) in the result JSON. First repeat still
+  returns the cheap `unchanged` stub; the consecutive-read block (4+ in a
+  row) and the no-progress result-hash guardrail still bound true loops —
+  failure-mode changed from "trapped without content" to "has content,
+  must move on". `TestDedupStubLoopGuard` rewritten to the new contract
+  (re-serve on 3rd read, stub/re-serve cycle bounded by the consecutive
+  block). ⚠ Upstream owns both files; check on every sync.
 
 ### Skills — only ours (drop-in, low conflict risk)
 - `skills/mlops/models/comfyui/` — remote ComfyUI skill: `queue_workflow.py`,

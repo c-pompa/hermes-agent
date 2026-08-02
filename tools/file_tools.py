@@ -1245,46 +1245,42 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = 
                 task_data["read_timestamps"] = {}
             cached_mtime = task_data.get("dedup", {}).get(dedup_key)
 
+        re_served = False
         if cached_mtime is not None:
             try:
                 current_mtime = os.path.getmtime(resolved_str)
                 if current_mtime == cached_mtime:
-                    # Count repeated stub returns so weak tool-followers that
-                    # ignore the "refer to earlier result" hint don't burn
-                    # their iteration budget in an infinite read loop.  After
-                    # 2 stubs for the same key we escalate to a hard block
-                    # mirroring the count>=4 path on real reads.
+                    # Count repeated reads of an unchanged region. The first
+                    # repeat gets the cheap "unchanged" stub (saves context
+                    # tokens). On further repeats we RE-SERVE the full content
+                    # instead of hard-blocking: in long sessions the earlier
+                    # result may have been trimmed from the model's prompt by
+                    # context hygiene, so the old "refer to your earlier read"
+                    # block trapped the model — it needed the content, was
+                    # told (falsely) that it already had it, and retried until
+                    # the tool-loop guardrail hard-stopped the turn.  True
+                    # no-progress loops are still caught by the guardrail's
+                    # idempotent_no_progress tracking (identical result hash),
+                    # so re-serving does not open an infinite loop.
                     with _read_tracker_lock:
                         hits = task_data["dedup_hits"].get(dedup_key, 0) + 1
                         task_data["dedup_hits"][dedup_key] = hits
                         _cap_read_tracker_data(task_data)
 
                     if hits >= 2:
-                        return tool_error(
-                            f"BLOCKED: You have called read_file on this "
-                            f"exact region (lines {offset}-"
-                            f"{offset + limit - 1}) {hits + 1} times and "
-                            "the file has NOT changed. STOP calling "
-                            "read_file for this path and region — the "
-                            "content from your earlier read_file result in "
-                            "this conversation is still current. "
-                            + _read_dedup_guidance(offset, limit),
-                            path=path,
-                            already_read=hits + 1,
-                            next_offset=offset + limit,
-                        )
-
-                    return json.dumps({
-                        "status": "unchanged",
-                        "message": (
-                            _READ_DEDUP_STATUS_MESSAGE + " "
-                            + _read_dedup_guidance(offset, limit)
-                        ),
-                        "path": path,
-                        "dedup": True,
-                        "content_returned": False,
-                        "next_offset": offset + limit,
-                    }, ensure_ascii=False)
+                        re_served = True  # fall through to the full read below
+                    else:
+                        return json.dumps({
+                            "status": "unchanged",
+                            "message": (
+                                _READ_DEDUP_STATUS_MESSAGE + " "
+                                + _read_dedup_guidance(offset, limit)
+                            ),
+                            "path": path,
+                            "dedup": True,
+                            "content_returned": False,
+                            "next_offset": offset + limit,
+                        }, ensure_ascii=False)
             except OSError:
                 pass  # stat failed — fall through to full read
 
@@ -1292,6 +1288,15 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = 
         file_ops = _get_file_ops(task_id)
         result = file_ops.read_file(path, offset, limit)
         result_dict = result.to_dict()
+        if re_served:
+            result_dict["re_served"] = True
+            result_dict["note"] = (
+                f"This region (lines {offset}-{offset + limit - 1}) was "
+                "served again — your earlier read of it may no longer be in "
+                "your context. Proceed with this content; do not re-read "
+                "the same region. "
+                + _read_dedup_guidance(offset, limit)
+            )
 
         # ── Character-count guard ─────────────────────────────────────
         # We're model-agnostic so we can't count tokens; characters are
