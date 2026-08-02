@@ -72,6 +72,7 @@ export const de: Translations = {
       config: "Konfiguration",
       cron: "Cron",
       documentation: "Dokumentation",
+      errors: "Fehler",
       keys: "Schlüssel",
       logs: "Protokolle",
       models: "Modelle",
@@ -221,6 +222,22 @@ export const de: Translations = {
     component: "Komponente",
     lines: "Zeilen",
     noLogLines: "Keine Protokollzeilen gefunden",
+  },
+
+  errors: {
+    source: "Quelle",
+    window: "Zeitraum",
+    provider: "Anbieter",
+    providerPlaceholder: "z. B. openrouter",
+    statusCode: "Status",
+    statusCodePlaceholder: "z. B. 401",
+    colTime: "Zeit",
+    colModel: "Modell",
+    colReason: "Grund",
+    colAttempt: "Versuch",
+    colSession: "Sitzung",
+    terminal: "endgültig",
+    noErrors: "Keine API-Fehler in diesem Zeitraum",
   },
 
   cron: {

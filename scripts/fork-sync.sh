@@ -34,6 +34,16 @@ ADDITIVE=(
   scripts/fork-auto-update.sh
   scripts/fork-verify-fleet.sh
   skills/devops/homelab-jobs
+  # 2026-08-02 api-errors dashboard feature (see FORK_CHANGELOG.md)
+  hermes_cli/observability/api_error_store.py
+  hermes_cli/observability/api_errors.py
+  hermes_cli/observability/api_error_logs.py
+  hermes_cli/web_routers/errors.py
+  tests/hermes_cli/test_api_error_store.py
+  tests/hermes_cli/test_api_error_logs.py
+  tests/hermes_cli/test_web_router_errors.py
+  tests/hermes_cli/test_observability_api_errors.py
+  web/src/pages/ErrorsPage.tsx
 )
 # Upstream-owned files carrying our code patches (see FORK_CHANGELOG.md §"Core
 # code patches"). Re-applied by 3-way apply; conflicts resolve upstream-first.
@@ -51,6 +61,17 @@ PATCH_FILES=(
   agent/tool_guardrails.py tests/agent/test_tool_guardrails.py
   tools/session_search_tool.py tui_gateway/ws.py
   tests/tools/test_session_search.py
+  # 2026-08-02 NVIDIA NIM: never emit `reasoning` extra_body on the NIM route
+  agent/auxiliary_client.py
+  # 2026-08-02 api-errors dashboard feature (see FORK_CHANGELOG.md)
+  hermes_cli/observability/__init__.py
+  tui_gateway/server.py tui_gateway/compute_host.py
+  web/src/App.tsx web/src/lib/api.ts web/src/lib/resolve-page-title.ts
+  web/src/i18n/types.ts web/src/i18n/en.ts
+  web/src/i18n/af.ts web/src/i18n/de.ts web/src/i18n/es.ts web/src/i18n/fr.ts
+  web/src/i18n/ga.ts web/src/i18n/hu.ts web/src/i18n/it.ts web/src/i18n/ja.ts
+  web/src/i18n/ko.ts web/src/i18n/pt.ts web/src/i18n/ru.ts web/src/i18n/tr.ts
+  web/src/i18n/uk.ts web/src/i18n/zh.ts web/src/i18n/zh-hant.ts
 )
 
 cd "$REPO"

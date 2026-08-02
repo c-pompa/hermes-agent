@@ -1516,6 +1516,16 @@ def _apply_compute_host_metadata_mirror(session: dict, frame: dict | None) -> No
         session["_metadata_mirror_updated_at"] = time.time()
 
 
+_GENERIC_TURN_ERROR_TEXTS = frozenset({
+    "",
+    "error",
+    "request failed",
+    "turn failed",
+    "compute host turn failed",
+    "unknown error",
+})
+
+
 def _on_compute_host_turn_done(rid: str, sid: str, session: dict, frame: dict) -> None:
     is_error = frame.get("type") == "turn.error"
     with session["history_lock"]:
@@ -1533,7 +1543,13 @@ def _on_compute_host_turn_done(rid: str, sid: str, session: dict, frame: dict) -
         session["last_active"] = time.time()
         _clear_inflight_turn(session)
     if is_error:
-        message = str(frame.get("message") or "compute host turn failed")
+        # The compute host already upgrades bare exception text via
+        # _turn_error_message; an empty/generic message here means it had no
+        # classified summary either — still point at the dashboard /errors
+        # page instead of rendering a bare "request failed".
+        message = str(frame.get("message") or "").strip()
+        if message.lower() in _GENERIC_TURN_ERROR_TEXTS:
+            message = "compute host turn failed — details: dashboard /errors"
         _emit("message.complete", sid, {"text": f"Error: {message}", "status": "error"})
     _apply_compute_host_metadata_mirror(session, frame)
     try:

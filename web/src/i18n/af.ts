@@ -72,6 +72,7 @@ export const af: Translations = {
       config: "Konfigurasie",
       cron: "Cron",
       documentation: "Dokumentasie",
+      errors: "Foute",
       keys: "Sleutels",
       logs: "Logs",
       models: "Modelle",
@@ -221,6 +222,22 @@ export const af: Translations = {
     component: "Komponent",
     lines: "Reëls",
     noLogLines: "Geen logreëls gevind nie",
+  },
+
+  errors: {
+    source: "Bron",
+    window: "Venster",
+    provider: "Verskaffer",
+    providerPlaceholder: "bv. openrouter",
+    statusCode: "Status",
+    statusCodePlaceholder: "bv. 401",
+    colTime: "Tyd",
+    colModel: "Model",
+    colReason: "Rede",
+    colAttempt: "Poging",
+    colSession: "Sessie",
+    terminal: "finaal",
+    noErrors: "Geen API-foute in hierdie venster nie",
   },
 
   cron: {

@@ -72,6 +72,7 @@ export const ko: Translations = {
       config: "설정",
       cron: "Cron",
       documentation: "문서",
+      errors: "오류",
       keys: "키",
       logs: "로그",
       models: "모델",
@@ -221,6 +222,22 @@ export const ko: Translations = {
     component: "구성 요소",
     lines: "줄 수",
     noLogLines: "로그 줄을 찾을 수 없습니다",
+  },
+
+  errors: {
+    source: "소스",
+    window: "기간",
+    provider: "제공자",
+    providerPlaceholder: "예: openrouter",
+    statusCode: "상태",
+    statusCodePlaceholder: "예: 401",
+    colTime: "시간",
+    colModel: "모델",
+    colReason: "사유",
+    colAttempt: "시도",
+    colSession: "세션",
+    terminal: "최종",
+    noErrors: "이 기간에 API 오류가 없습니다",
   },
 
   cron: {

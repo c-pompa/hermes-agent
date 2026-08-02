@@ -72,6 +72,7 @@ export const ga: Translations = {
       config: "Cumraíocht",
       cron: "Cron",
       documentation: "Doiciméadú",
+      errors: "Earráidí",
       keys: "Eochracha",
       logs: "Logaí",
       models: "Samhlacha",
@@ -221,6 +222,22 @@ export const ga: Translations = {
     component: "Comhpháirt",
     lines: "Línte",
     noLogLines: "Níor aimsíodh línte loga",
+  },
+
+  errors: {
+    source: "Foinse",
+    window: "Fuinneog",
+    provider: "Soláthraí",
+    providerPlaceholder: "m.sh. openrouter",
+    statusCode: "Stádas",
+    statusCodePlaceholder: "m.sh. 401",
+    colTime: "Am",
+    colModel: "Múnla",
+    colReason: "Cúis",
+    colAttempt: "Iarracht",
+    colSession: "Seisiún",
+    terminal: "deiridh",
+    noErrors: "Níl aon earráidí API sa fhuinneog seo",
   },
 
   cron: {

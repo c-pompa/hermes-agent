@@ -95,6 +95,42 @@ Remote naming (unified 2026-07-23, both Mac and mini):
 ## Fork delta (re-apply after each upstream sync)
 
 ### Core code patches (⚠ upstream-owned files — check first on every sync)
+- **API error surfacing for the dashboard (2026-08-02)** — turns that failed
+  showed a bare `request failed` in the desktop/TUI while the rich detail
+  (provider, base_url, model, HTTP status, summary, fallback chain) only
+  reached `logs/agent.log`. Parts:
+  - NEW `hermes_cli/observability/api_error_store.py` — sqlite
+    `~/.hermes/api_errors.db` (WAL/busy_timeout/always-close pattern copied
+    from `agent/verification_evidence.py`; `agent.redact` on messages; the
+    hook's `request` payload is never persisted).
+  - NEW `hermes_cli/observability/api_errors.py` — consumer of the existing
+    `api_request_error` lifecycle hook; ⚠ `hermes_cli/observability/__init__.py`
+    wires it via the codebase's own `_safe_observe` (3 lines).
+  - NEW `hermes_cli/observability/api_error_logs.py` — alternate log-tail
+    source (parses `agent.log` failure lines into the same row shape).
+  - NEW `hermes_cli/web_routers/errors.py` — `GET /api/errors[/summary|/meta]`;
+    ⚠ one `include_router` in `hermes_cli/web_server.py`. Source toggle:
+    `observability.errors_source: store|logs` (default store) or `?source=`.
+  - NEW `web/src/pages/ErrorsPage.tsx` (+ ⚠ edits `web/src/App.tsx`,
+    `web/src/lib/api.ts`, `web/src/lib/resolve-page-title.ts`, `web/src/i18n/*`)
+    — dashboard `/errors` page with Store/Logs toggle (Logs shows its cons),
+    summary chips, filters, 15s poll.
+  - ⚠ `tui_gateway/server.py` + `tui_gateway/compute_host.py` — empty/generic
+    turn-error frames now carry the classified summary + `— details:
+    dashboard /errors` instead of surfacing as a bare `request failed`.
+  - Tests: `tests/hermes_cli/test_api_error_{store,logs}.py`,
+    `test_web_router_errors.py`, `test_observability_api_errors.py`.
+- `agent/auxiliary_client.py` (`_build_call_kwargs`) — **never emit the
+  `reasoning` extra_body for NVIDIA NIM (2026-08-02).** Every model on
+  `integrate.api.nvidia.com` rejects the parameter outright (HTTP 400
+  "Unsupported parameter(s): `reasoning`"), including
+  `{"enabled": false}` — so a MoA aggregator/advisor on NIM could never
+  succeed whenever any reasoning_config resolved (e.g. global
+  `agent.reasoning_effort: medium` flows into the MoA aggregator via
+  `_aggregator_reasoning_config`). The generic reasoning emit is now
+  skipped when the base URL contains `integrate.api.nvidia.com`. Pair
+  with `reasoning_effort: none` on NIM MoA slots (set on the `nvidia`
+  preset aggregator in config.yaml).
 - `hermes_cli/web_server.py` (`start_server`) + `tui_gateway/slash_worker.py`
   (`main`) — **shell-hook registration for dashboard + TUI-worker processes
   (2026-07-12).** Upstream only registers declarative shell hooks in the CLI

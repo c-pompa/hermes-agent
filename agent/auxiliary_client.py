@@ -7398,10 +7398,15 @@ def _build_call_kwargs(
     merged_extra = dict(extra_body or {})
     merged_extra.update(profile_body)
     merged_extra.update(profile_reasoning_extra)
+    # NVIDIA NIM (integrate.api.nvidia.com) rejects the `reasoning` parameter
+    # outright (HTTP 400 "Unsupported parameter(s): `reasoning`") for every
+    # model — even {"enabled": false} — so never emit it on this route.
+    _rejects_reasoning_param = "integrate.api.nvidia.com" in (base_url or "")
     if (
         reasoning_config
         and isinstance(reasoning_config, dict)
         and not profile_handles_reasoning
+        and not _rejects_reasoning_param
     ):
         if reasoning_config.get("enabled") is False:
             merged_extra["reasoning"] = {"enabled": False}

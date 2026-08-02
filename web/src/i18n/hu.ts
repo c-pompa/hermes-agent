@@ -72,6 +72,7 @@ export const hu: Translations = {
       config: "Beállítások",
       cron: "Cron",
       documentation: "Dokumentáció",
+      errors: "Hibák",
       keys: "Kulcsok",
       logs: "Naplók",
       models: "Modellek",
@@ -221,6 +222,22 @@ export const hu: Translations = {
     component: "Komponens",
     lines: "Sorok",
     noLogLines: "Nem található naplóbejegyzés",
+  },
+
+  errors: {
+    source: "Forrás",
+    window: "Időablak",
+    provider: "Szolgáltató",
+    providerPlaceholder: "pl. openrouter",
+    statusCode: "Státusz",
+    statusCodePlaceholder: "pl. 401",
+    colTime: "Idő",
+    colModel: "Modell",
+    colReason: "Ok",
+    colAttempt: "Kísérlet",
+    colSession: "Munkamenet",
+    terminal: "végleges",
+    noErrors: "Nincsenek API-hibák ebben az időablakban",
   },
 
   cron: {

@@ -72,6 +72,7 @@ export const zhHant: Translations = {
       config: "設定",
       cron: "排程任務",
       documentation: "文件",
+      errors: "錯誤",
       keys: "金鑰",
       logs: "日誌",
       models: "模型",
@@ -221,6 +222,22 @@ export const zhHant: Translations = {
     component: "元件",
     lines: "行數",
     noLogLines: "找不到日誌記錄",
+  },
+
+  errors: {
+    source: "來源",
+    window: "時間範圍",
+    provider: "供應商",
+    providerPlaceholder: "例如 openrouter",
+    statusCode: "狀態",
+    statusCodePlaceholder: "例如 401",
+    colTime: "時間",
+    colModel: "模型",
+    colReason: "原因",
+    colAttempt: "嘗試",
+    colSession: "工作階段",
+    terminal: "終止",
+    noErrors: "此時間範圍內沒有 API 錯誤",
   },
 
   cron: {

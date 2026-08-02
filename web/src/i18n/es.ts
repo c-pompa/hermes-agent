@@ -72,6 +72,7 @@ export const es: Translations = {
       config: "Configuración",
       cron: "Cron",
       documentation: "Documentación",
+      errors: "Errores",
       keys: "Claves",
       logs: "Registros",
       models: "Modelos",
@@ -221,6 +222,22 @@ export const es: Translations = {
     component: "Componente",
     lines: "Líneas",
     noLogLines: "No se encontraron líneas de registro",
+  },
+
+  errors: {
+    source: "Fuente",
+    window: "Ventana",
+    provider: "Proveedor",
+    providerPlaceholder: "p. ej. openrouter",
+    statusCode: "Estado",
+    statusCodePlaceholder: "p. ej. 401",
+    colTime: "Hora",
+    colModel: "Modelo",
+    colReason: "Motivo",
+    colAttempt: "Intento",
+    colSession: "Sesión",
+    terminal: "terminal",
+    noErrors: "No hay errores de API en esta ventana",
   },
 
   cron: {

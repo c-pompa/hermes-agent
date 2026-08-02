@@ -72,6 +72,7 @@ export const tr: Translations = {
       config: "Yapılandırma",
       cron: "Cron",
       documentation: "Dokümantasyon",
+      errors: "Hatalar",
       keys: "Anahtarlar",
       logs: "Günlükler",
       models: "Modeller",
@@ -221,6 +222,22 @@ export const tr: Translations = {
     component: "Bileşen",
     lines: "Satırlar",
     noLogLines: "Günlük satırı bulunamadı",
+  },
+
+  errors: {
+    source: "Kaynak",
+    window: "Pencere",
+    provider: "Sağlayıcı",
+    providerPlaceholder: "ör. openrouter",
+    statusCode: "Durum",
+    statusCodePlaceholder: "ör. 401",
+    colTime: "Zaman",
+    colModel: "Model",
+    colReason: "Neden",
+    colAttempt: "Deneme",
+    colSession: "Oturum",
+    terminal: "nihai",
+    noErrors: "Bu pencerede API hatası yok",
   },
 
   cron: {

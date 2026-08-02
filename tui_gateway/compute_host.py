@@ -26,6 +26,41 @@ def now_ns() -> int:
     return time.perf_counter_ns()
 
 
+_GENERIC_TURN_ERROR_TEXTS = frozenset({
+    "",
+    "error",
+    "request failed",
+    "turn failed",
+    "compute host turn failed",
+    "unknown error",
+})
+
+
+def _turn_error_message(exc: BaseException) -> str:
+    """User-facing error text for a turn-level exception.
+
+    A bare ``str(exc)`` is often empty or generic (the client then renders a
+    useless "request failed"). Fall back to the classified one-line API error
+    summary when available and point at the dashboard /errors page, which
+    carries the full provider/status/fallback detail.
+    """
+    message = str(exc).strip()
+    if message.lower() in _GENERIC_TURN_ERROR_TEXTS:
+        summary = ""
+        try:
+            from run_agent import AIAgent
+
+            summary = AIAgent._summarize_api_error(exc).strip()
+        except Exception:
+            summary = ""
+        if summary and summary.lower() not in _GENERIC_TURN_ERROR_TEXTS:
+            message = summary
+        else:
+            message = message or "turn failed"
+        message = f"{message} — details: dashboard /errors"
+    return message
+
+
 @dataclass
 class SpikeAgent:
     """A deterministic AIAgent-shaped object for pipe/interrupt measurements."""
@@ -340,7 +375,7 @@ class ComputeHost:
         except Exception as exc:  # pragma: no cover - defensive host boundary
             with session.lock:
                 session.running = False
-            self.emit({"type": "turn.error", "sid": session.sid, "request_id": request_id, "message": str(exc)})
+            self.emit({"type": "turn.error", "sid": session.sid, "request_id": request_id, "message": _turn_error_message(exc)})
 
     # ── Real dashboard turn path ───────────────────────────────────────
 
@@ -414,7 +449,7 @@ class ComputeHost:
                         server._clear_inflight_turn(session)
             except Exception:
                 pass
-            self.emit({"type": "turn.error", "sid": sid, "request_id": request_id, "reason": "exception", "message": str(exc)})
+            self.emit({"type": "turn.error", "sid": sid, "request_id": request_id, "reason": "exception", "message": _turn_error_message(exc)})
 
     def _ensure_server_session(self, server: Any, frame: dict[str, Any]) -> dict:
         sid = str(frame.get("sid") or "")

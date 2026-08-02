@@ -4719,6 +4719,11 @@ from hermes_cli.web_routers.sessions import (  # noqa: E402,F401 — legacy re-e
 )
 
 
+from hermes_cli.web_routers import errors as _errors_routes  # noqa: E402
+
+app.include_router(_errors_routes.router)
+
+
 def _normalize_config_for_web(config: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize config for the web UI.
 

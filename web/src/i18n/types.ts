@@ -93,6 +93,7 @@ export interface Translations {
       config: string;
       cron: string;
       documentation: string;
+      errors: string;
       keys: string;
       logs: string;
       models: string;
@@ -254,6 +255,23 @@ export interface Translations {
     component: string;
     lines: string;
     noLogLines: string;
+  };
+
+  // ── Errors page ──
+  errors: {
+    source: string;
+    window: string;
+    provider: string;
+    providerPlaceholder: string;
+    statusCode: string;
+    statusCodePlaceholder: string;
+    colTime: string;
+    colModel: string;
+    colReason: string;
+    colAttempt: string;
+    colSession: string;
+    terminal: string;
+    noErrors: string;
   };
 
   // ── Cron page ──

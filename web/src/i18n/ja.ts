@@ -72,6 +72,7 @@ export const ja: Translations = {
       config: "設定",
       cron: "Cron",
       documentation: "ドキュメント",
+      errors: "エラー",
       keys: "キー",
       logs: "ログ",
       models: "モデル",
@@ -221,6 +222,22 @@ export const ja: Translations = {
     component: "コンポーネント",
     lines: "行数",
     noLogLines: "ログ行が見つかりません",
+  },
+
+  errors: {
+    source: "ソース",
+    window: "期間",
+    provider: "プロバイダー",
+    providerPlaceholder: "例: openrouter",
+    statusCode: "ステータス",
+    statusCodePlaceholder: "例: 401",
+    colTime: "時刻",
+    colModel: "モデル",
+    colReason: "理由",
+    colAttempt: "試行",
+    colSession: "セッション",
+    terminal: "終端",
+    noErrors: "この期間にAPIエラーはありません",
   },
 
   cron: {

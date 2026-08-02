@@ -71,6 +71,7 @@ export const zh: Translations = {
       config: "配置",
       cron: "定时任务",
       documentation: "文档",
+      errors: "错误",
       keys: "密钥",
       logs: "日志",
       models: "模型",
@@ -219,6 +220,22 @@ export const zh: Translations = {
     component: "组件",
     lines: "行数",
     noLogLines: "未找到日志记录",
+  },
+
+  errors: {
+    source: "来源",
+    window: "时间窗口",
+    provider: "提供商",
+    providerPlaceholder: "例如 openrouter",
+    statusCode: "状态",
+    statusCodePlaceholder: "例如 401",
+    colTime: "时间",
+    colModel: "模型",
+    colReason: "原因",
+    colAttempt: "尝试",
+    colSession: "会话",
+    terminal: "终止",
+    noErrors: "此时间窗口内没有 API 错误",
   },
 
   cron: {

@@ -72,6 +72,7 @@ export const ru: Translations = {
       config: "Конфигурация",
       cron: "Cron",
       documentation: "Документация",
+      errors: "Ошибки",
       keys: "Ключи",
       logs: "Журналы",
       models: "Модели",
@@ -221,6 +222,22 @@ export const ru: Translations = {
     component: "Компонент",
     lines: "Строк",
     noLogLines: "Записи журнала не найдены",
+  },
+
+  errors: {
+    source: "Источник",
+    window: "Период",
+    provider: "Провайдер",
+    providerPlaceholder: "напр. openrouter",
+    statusCode: "Статус",
+    statusCodePlaceholder: "напр. 401",
+    colTime: "Время",
+    colModel: "Модель",
+    colReason: "Причина",
+    colAttempt: "Попытка",
+    colSession: "Сессия",
+    terminal: "финальная",
+    noErrors: "Нет ошибок API за этот период",
   },
 
   cron: {

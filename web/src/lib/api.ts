@@ -510,6 +510,34 @@ export const api = {
     if (params.component && params.component !== "all") qs.set("component", params.component);
     return fetchJSON<LogsResponse>(`/api/logs?${qs.toString()}`);
   },
+  // API error feed (/api/errors — hermes_cli/web_routers/errors.py). Rows are
+  // served from the sqlite error store (source=store) or by parsing agent.log
+  // tails (source=logs); the backend picks its configured default when the
+  // source param is omitted. Errors are machine-global, so these URLs must
+  // NOT join PROFILE_SCOPED_PREFIXES above.
+  getErrors: (params: {
+    limit?: number;
+    since_minutes?: number;
+    provider?: string;
+    session_id?: string;
+    status_code?: number | string;
+    source?: ApiErrorsSource;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params.limit) qs.set("limit", String(params.limit));
+    if (params.since_minutes) qs.set("since_minutes", String(params.since_minutes));
+    if (params.provider) qs.set("provider", params.provider);
+    if (params.session_id) qs.set("session_id", params.session_id);
+    if (params.status_code !== undefined && params.status_code !== "")
+      qs.set("status_code", String(params.status_code));
+    if (params.source) qs.set("source", params.source);
+    return fetchJSON<ApiErrorsResponse>(`/api/errors?${qs.toString()}`);
+  },
+  getErrorsSummary: (since_minutes = 1440) =>
+    fetchJSON<ApiErrorsSummaryResponse>(
+      `/api/errors/summary?since_minutes=${since_minutes}`,
+    ),
+  getErrorsMeta: () => fetchJSON<ApiErrorsMeta>("/api/errors/meta"),
   getAnalytics: (days: number, profile = getManagementProfile()) =>
     fetchJSON<AnalyticsResponse>(
       appendProfileParam(`/api/analytics/usage?days=${days}`, profile),
@@ -2019,6 +2047,47 @@ export interface SessionMessagesResponse {
 export interface LogsResponse {
   file: string;
   lines: string[];
+}
+
+export type ApiErrorsSource = "store" | "logs";
+
+export interface ApiErrorEntry {
+  id: number;
+  /** Epoch seconds from the store source; the logs source may emit ISO text. */
+  ts: number | string;
+  session_id: string | null;
+  turn_id: string | null;
+  platform: string | null;
+  provider: string | null;
+  base_url: string | null;
+  model: string | null;
+  status_code: number | null;
+  reason: string | null;
+  retryable: boolean;
+  retry_count: number | null;
+  max_retries: number | null;
+  error_type: string | null;
+  error_message: string | null;
+}
+
+export interface ApiErrorsResponse {
+  errors: ApiErrorEntry[];
+}
+
+export interface ApiErrorSummaryGroup {
+  provider: string | null;
+  status_code: number | null;
+  reason: string | null;
+  count: number;
+}
+
+export interface ApiErrorsSummaryResponse {
+  groups: ApiErrorSummaryGroup[];
+}
+
+export interface ApiErrorsMeta {
+  default_source: ApiErrorsSource;
+  logs_cons_note: string;
 }
 
 export interface ManagedFileEntry {

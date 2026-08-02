@@ -72,6 +72,7 @@ export const uk: Translations = {
       config: "Конфігурація",
       cron: "Cron",
       documentation: "Документація",
+      errors: "Помилки",
       keys: "Ключі",
       logs: "Журнали",
       models: "Моделі",
@@ -221,6 +222,22 @@ export const uk: Translations = {
     component: "Компонент",
     lines: "Рядки",
     noLogLines: "Записів журналу не знайдено",
+  },
+
+  errors: {
+    source: "Джерело",
+    window: "Період",
+    provider: "Провайдер",
+    providerPlaceholder: "напр. openrouter",
+    statusCode: "Статус",
+    statusCodePlaceholder: "напр. 401",
+    colTime: "Час",
+    colModel: "Модель",
+    colReason: "Причина",
+    colAttempt: "Спроба",
+    colSession: "Сесія",
+    terminal: "фінальна",
+    noErrors: "Немає помилок API за цей період",
   },
 
   cron: {
