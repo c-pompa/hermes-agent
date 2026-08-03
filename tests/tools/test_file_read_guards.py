@@ -331,10 +331,10 @@ class TestFileDedup(unittest.TestCase):
         self.assertNotIn("content", r2)
         # Actionable guidance: the stub must name the region already read
         # and the offset of the next unread region (default read covers
-        # lines 1-500, so the next region starts at offset=501).
-        self.assertEqual(r2.get("next_offset"), 501)
-        self.assertIn("lines 1-500", r2.get("message", ""))
-        self.assertIn("offset=501", r2.get("message", ""))
+        # lines 1-2000, so the next region starts at offset=2001).
+        self.assertEqual(r2.get("next_offset"), 2001)
+        self.assertIn("lines 1-2000", r2.get("message", ""))
+        self.assertIn("offset=2001", r2.get("message", ""))
         self.assertIn("has not", r2.get("message", ""))
 
     @patch("tools.file_tools._get_file_ops")
@@ -437,8 +437,8 @@ class TestDedupStubLoopGuard(unittest.TestCase):
         self.assertTrue(r3.get("re_served"))
         self.assertIn("content", r3)
         # The note must be actionable: name the region and the next offset.
-        self.assertIn("lines 1-500", r3["note"])
-        self.assertIn("offset=501", r3["note"])
+        self.assertIn("lines 1-2000", r3["note"])
+        self.assertIn("offset=2001", r3["note"])
 
     @patch("tools.file_tools._get_file_ops")
     def test_re_serve_cycle_bounded_by_consecutive_block(self, mock_ops):

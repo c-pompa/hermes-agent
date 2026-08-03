@@ -15,7 +15,40 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-07-31 — vendored upstream `126ff7071`
+**Last sync:** 2026-08-02 (candidate prepared) — vendoring upstream `a6defd4f1`
+(635 commits since `126ff7071`; v2026.7.30+497). Patch verdicts:
+**one patch DROPPED** — `agent/image_routing.py` (2026-06, magic-byte MIME
+sniffing) is now native upstream in identical form
+(`_sniff_mime_from_bytes`, "magic-byte sniffing wins (authoritative)") —
+byte-identical to our version, zero-loss drop, removed from the delta.
+Everything else **still needed**; one 3-way conflict
+(`gateway/run.py` terminal-env bridge — resolved theirs: our hoisted
+`_bridge_terminal_env_from_config` call; upstream's map is unchanged except
+the new `docker_shm_size` key, which was ADDED to our hoisted
+`_TERMINAL_CONFIG_ENV_MAP` to match). **Sync-script gap found + fixed:**
+`tools/file_tools.py` + `tests/tools/test_file_read_guards.py` (the
+2026-08-01 read_file re-serve patch) were missing from `PATCH_FILES` in
+`fork-sync.sh` and would have been silently dropped — added, patch applied
+cleanly to the candidate. Our test expectations ported to upstream's new
+read_file default limit (500→2000: `lines 1-2000` / `next_offset=2001`).
+Upstream-active regions verified non-overlapping with our hunks:
+`agent/auxiliary_client.py` (upstream's new NIM branch is attribution
+headers only — our `reasoning` extra_body skip stays), dashboard/TUI
+hook registration (upstream still CLI/gateway-only), MoA timing
+(`duration_s` still absent upstream), leading-user-turn guard, ws
+keepalive, session-search demotion — all 0 upstream hits. Targeted tests
+green in the vendor worktree: **108 passed** (message-sequence-repair,
+tool_guardrails, session_search, file_read_guards).
+**New upstream capabilities to adopt after deploy:** session watchdog +
+stall/compress timeout keys (`agent.session_stall_timeout` — addresses the
+2026-07-27 stall class), outbound webhooks (`feat(hooks)` — signed
+lifecycle events to external HTTP; candidate future transport for the
+metrics pipeline, could retire `forwarder.py`), A2A protocol plugin
+(#514), native kanban desktop plugin (backend already live), Node 26
+required (installers heal automatically), `docker_shm_size` default 1g,
+recoverable terminal truncation (spills full output to disk).
+
+**Previous sync:** 2026-07-31 — vendored upstream `126ff7071`
 (1,867 commits since `78c06525e`; v2026.7.30+8). Patch verdicts:
 **one patch DROPPED** — the local desktop-plugins door (2026-07-21) is
 now native upstream in a superior form (#66899, `e614876c6` +
@@ -343,8 +376,11 @@ Remote naming (unified 2026-07-23, both Mac and mini):
 
 ### Agent code — ours, but bundled with a vendored sync ⚠
 - `agent/image_routing.py` — sniff magic bytes for image MIME, ignore a
-  misleading file suffix. Landed in commit `79c1408c6`, which also carried a
-  vendored upstream sync — isolate this hunk when re-applying.
+  misleading file suffix. **DROPPED 2026-08-02 (native upstream).** Upstream
+  now ships `_sniff_mime_from_bytes` with the same semantics
+  ("magic-byte sniffing wins (authoritative)") — our file is byte-identical
+  to upstream's. Do NOT re-apply; verify on each sync that upstream's
+  sniffing remains.
 
 ## Environment / ops notes (NOT in the fork repo — re-apply by hand)
 

@@ -61,6 +61,8 @@ PATCH_FILES=(
   agent/tool_guardrails.py tests/agent/test_tool_guardrails.py
   tools/session_search_tool.py tui_gateway/ws.py
   tests/tools/test_session_search.py
+  # 2026-08-01 read_file dedup re-serve instead of hard BLOCK (FORK_CHANGELOG.md)
+  tools/file_tools.py tests/tools/test_file_read_guards.py
   # 2026-08-02 NVIDIA NIM: never emit `reasoning` extra_body on the NIM route
   agent/auxiliary_client.py
   # 2026-08-02 api-errors dashboard feature (see FORK_CHANGELOG.md)
