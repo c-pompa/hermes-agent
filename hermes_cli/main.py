@@ -10203,6 +10203,24 @@ def cmd_dashboard(args):
     # build gate, and start_server.
     _headless_backend = getattr(args, "headless_backend", False)
     _ssh_owner_nonce = getattr(args, "ssh_owner_nonce", None)
+
+    # Fork patch (2026-08-03): register outbound webhooks here too.
+    # serve/dashboard are not in _AGENT_COMMANDS, so this process never runs
+    # _prepare_agent_startup() — but desktop-spawned `hermes serve` backends
+    # DO serve agent turns, and without registration hooks.outbound never
+    # fires for them (desktop turns were missing from the metrics pipeline).
+    try:
+        from hermes_cli.config import load_config as _load_hooks_cfg
+        from agent.outbound_webhooks import (
+            register_from_config as _register_outbound_webhooks,
+        )
+        _register_outbound_webhooks(_load_hooks_cfg())
+    except Exception:
+        logger.debug(
+            "outbound webhook registration failed at dashboard/serve startup",
+            exc_info=True,
+        )
+
     if _ssh_owner_nonce and not re.fullmatch(r"[0-9a-f]{16}", _ssh_owner_nonce):
         raise SystemExit("--ssh-owner-nonce must be 16 lowercase hex characters")
     _ssh_session_token = None

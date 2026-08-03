@@ -128,6 +128,15 @@ Remote naming (unified 2026-07-23, both Mac and mini):
 ## Fork delta (re-apply after each upstream sync)
 
 ### Core code patches (⚠ upstream-owned files — check first on every sync)
+- ⚠ `hermes_cli/main.py` (`cmd_dashboard`) — **register outbound webhooks for
+  `serve`/`dashboard` backends (2026-08-03).** `_prepare_agent_startup()`
+  (which wires `hooks.outbound`) only runs for `_AGENT_COMMANDS`
+  (`chat`/`acp`/`rl`/`gateway run`/`cron`/`mcp serve`) — but desktop-spawned
+  `hermes serve` backends serve agent turns too, so desktop turns never fired
+  `post_api_request` webhooks (metrics pipeline gap: CLI turns recorded,
+  desktop turns invisible). Patch: `register_from_config(load_config())` early
+  in `cmd_dashboard`, after the --status/--stop exits. Idempotent per process
+  (`_registered` dedup). main.py is already in fork-sync `PATCH_FILES`.
 - **API error surfacing for the dashboard (2026-08-02)** — turns that failed
   showed a bare `request failed` in the desktop/TUI while the rich detail
   (provider, base_url, model, HTTP status, summary, fallback chain) only
