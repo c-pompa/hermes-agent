@@ -350,6 +350,10 @@ function PillLabel() {
 const plugin: HermesPlugin = {
   id: 'gateway-pill',
   name: 'Gateway Pill',
+  // Dogfood duplicate of the native gateway-health statusbar item — off by
+  // default so users don't see two "Gateway" pills (enable in Settings →
+  // Plugins to preview the plugin-SDK version).
+  defaultEnabled: false,
   register(ctx) {
     startReadinessPoll()
 
