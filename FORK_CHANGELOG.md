@@ -128,6 +128,39 @@ Remote naming (unified 2026-07-23, both Mac and mini):
 ## Fork delta (re-apply after each upstream sync)
 
 ### Core code patches (⚠ upstream-owned files — check first on every sync)
+- **Cron per-job Discord results channel (2026-08-12).** A cron job can opt
+  into ALSO posting its results to a per-job Discord text channel
+  (`cron-<slug>`), strictly additive to its existing `deliver` targets —
+  local file output and the base delivery always happen; a Discord-side
+  failure (e.g. reset bot token) is recorded as `last_delivery_error` and
+  never fails the job (guaranteed by the existing `_deliver_result` /
+  `mark_job_run` isolation — no scheduler delivery changes). Parts:
+  - NEW `cron/discord_channels.py` — channel-name slugifier + Discord REST
+    provisioning (`list_guilds`, live `list_guild_text_channels` /
+    `list_all_text_channels`, `create_results_channel`); bot token via
+    profile-scoped `get_secret("DISCORD_BOT_TOKEN")`; 401 → DiscordAuthError,
+    403 → Manage Channels hint. `list_text_channels` reads the cached
+    channel_directory.json (never raises) for feed builders.
+  - ⚠ `hermes_cli/web_routers/cron.py` + `hermes_cli/web_server.py` +
+    `hermes_cli/web_models.py` — `GET/POST /api/cron/discord-channels`
+    (late-bound `_list/_create_cron_discord_channel_sync` workers;
+    `_run_cron_async` threadpool→asyncio bridge; `DiscordChannelCreate`
+    model; auth/permission errors → 502, guild-resolution errors → 400).
+  - ⚠ `cron/scheduler.py` (`cron_delivery_targets`) — appends per-channel
+    entries (`kind: "channel"`, id `discord:<channel_id>`) after platform
+    entries; silently degrades when the directory is unreadable.
+  - ⚠ `tools/cronjob_tools.py` — `deliver` schema doc text only.
+  - ⚠ Desktop cron editor (`apps/desktop/src/app/cron/*`, `hermes.ts`,
+    `types/hermes.ts`, `i18n/*`) and ⚠ web CronPage (`web/src/pages/
+    CronPage.tsx`, `web/src/lib/cron-job*.ts`) — "Discord results channel"
+    block: toggle + channel picker + Create/Use `cron-<slug>` button;
+    `composeDeliver` appends `discord:<id>`, strips only the managed entry,
+    never touches non-Discord targets.
+  - ⚠ `apps/desktop/src/plugins/gateway-pill/plugin.tsx` — `defaultEnabled:
+    false` (dogfood duplicate of the native gateway-health statusbar item).
+  - Tests: `tests/cron/test_discord_channels.py`,
+    `tests/hermes_cli/test_cron_discord_channels.py` (both NEW/additive),
+    ⚠ `tests/cron/test_scheduler.py`, ⚠ desktop/web cron test files.
 - ⚠ `hermes_cli/main.py` (`cmd_dashboard`) — **register outbound webhooks for
   `serve`/`dashboard` backends (2026-08-03).** `_prepare_agent_startup()`
   (which wires `hooks.outbound`) only runs for `_AGENT_COMMANDS`

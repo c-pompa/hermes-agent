@@ -44,6 +44,10 @@ ADDITIVE=(
   tests/hermes_cli/test_web_router_errors.py
   tests/hermes_cli/test_observability_api_errors.py
   web/src/pages/ErrorsPage.tsx
+  # 2026-08-12 cron per-job Discord results channel (see FORK_CHANGELOG.md)
+  cron/discord_channels.py
+  tests/cron/test_discord_channels.py
+  tests/hermes_cli/test_cron_discord_channels.py
 )
 # Upstream-owned files carrying our code patches (see FORK_CHANGELOG.md §"Core
 # code patches"). Re-applied by 3-way apply; conflicts resolve upstream-first.
@@ -74,6 +78,19 @@ PATCH_FILES=(
   web/src/i18n/ga.ts web/src/i18n/hu.ts web/src/i18n/it.ts web/src/i18n/ja.ts
   web/src/i18n/ko.ts web/src/i18n/pt.ts web/src/i18n/ru.ts web/src/i18n/tr.ts
   web/src/i18n/uk.ts web/src/i18n/zh.ts web/src/i18n/zh-hant.ts
+  # 2026-08-12 cron per-job Discord results channel (see FORK_CHANGELOG.md)
+  cron/scheduler.py hermes_cli/web_models.py hermes_cli/web_routers/cron.py
+  tools/cronjob_tools.py tests/cron/test_scheduler.py
+  web/src/pages/CronPage.tsx web/src/lib/cron-job.ts web/src/lib/cron-job.test.ts
+  apps/desktop/src/app/cron/cron-job-model.ts
+  apps/desktop/src/app/cron/cron-job-model.test.ts
+  apps/desktop/src/app/cron/index.tsx
+  apps/desktop/src/hermes.ts apps/desktop/src/types/hermes.ts
+  apps/desktop/src/i18n/types.ts apps/desktop/src/i18n/en.ts
+  apps/desktop/src/i18n/zh.ts apps/desktop/src/i18n/zh-hant.ts
+  apps/desktop/src/i18n/ja.ts apps/desktop/src/i18n/ar.ts
+  # 2026-08-12 gateway-pill plugin defaultEnabled: false (dogfood duplicate)
+  apps/desktop/src/plugins/gateway-pill/plugin.tsx
 )
 
 cd "$REPO"
