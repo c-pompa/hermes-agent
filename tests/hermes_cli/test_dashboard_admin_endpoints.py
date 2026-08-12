@@ -977,6 +977,55 @@ def test_spawn_hermes_action_scrubs_gateway_loop_guard_env(monkeypatch, tmp_path
 # Desktop lifespan reaps orphan gateways at serve startup (#77276)
 # ---------------------------------------------------------------------------
 
+def test_profile_dashboard_lifespan_starts_cron_ticker(
+    monkeypatch, _isolate_hermes_home, tmp_path
+):
+    """Isolated profile dashboards (launchd `hermes -p <name> dashboard`) must
+    run the cron ticker themselves — no gateway ticks a profile home, so
+    without it their jobs only fire while the Desktop app has that profile
+    open. The tick lock keeps this safe next to a real gateway."""
+    import hermes_cli.web_server as ws
+
+    started = []
+
+    monkeypatch.delenv("HERMES_DESKTOP", raising=False)
+    monkeypatch.setattr(ws, "_warm_gateway_module", lambda: None)
+    monkeypatch.setattr(
+        ws, "_start_desktop_cron_ticker", lambda *_args: started.append(True)
+    )
+    monkeypatch.setattr(
+        ws, "get_hermes_home", lambda: tmp_path / "profiles" / "hitl-v1"
+    )
+
+    client, _header = _client()
+    with client:
+        pass
+
+    assert started == [True]
+
+
+def test_non_profile_dashboard_lifespan_skips_cron_ticker(
+    monkeypatch, _isolate_hermes_home, tmp_path
+):
+    """A plain server dashboard keeps relying on its own gateway's ticker."""
+    import hermes_cli.web_server as ws
+
+    started = []
+
+    monkeypatch.delenv("HERMES_DESKTOP", raising=False)
+    monkeypatch.setattr(ws, "_warm_gateway_module", lambda: None)
+    monkeypatch.setattr(
+        ws, "_start_desktop_cron_ticker", lambda *_args: started.append(True)
+    )
+    monkeypatch.setattr(ws, "get_hermes_home", lambda: tmp_path / ".hermes")
+
+    client, _header = _client()
+    with client:
+        pass
+
+    assert started == []
+
+
 def test_desktop_lifespan_reaps_orphan_gateways_on_startup(
     monkeypatch, _isolate_hermes_home
 ):

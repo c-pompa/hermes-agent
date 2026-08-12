@@ -234,8 +234,13 @@ async def _lifespan(app: "FastAPI"):
     _warm_gateway_module()
 
     # Desktop-spawned backends (HERMES_DESKTOP=1) fire cron jobs themselves,
-    # since the app has no gateway running the scheduler. Server `hermes
-    # dashboard` is unaffected — it relies on its own gateway.
+    # since the app has no gateway running the scheduler. Isolated profile
+    # dashboards (e.g. launchd/systemd `hermes -p <name> dashboard`, whose
+    # home is profiles/<name>) get the ticker too: no gateway ticks a profile
+    # home, so without this their cron jobs only ever ran while the Desktop
+    # app happened to have that profile open. Cross-process safe: the
+    # built-in provider's tick takes the cron/.tick.lock file lock, so a
+    # gateway on the same home never double-fires.
     cron_stop: "threading.Event | None" = None
     cron_thread: "threading.Thread | None" = None
     if os.getenv("HERMES_DESKTOP") == "1":
@@ -252,6 +257,9 @@ async def _lifespan(app: "FastAPI"):
         except Exception:
             _log.exception("Desktop startup: orphan gateway reap failed")
 
+    _cron_home = get_hermes_home()
+    _is_profile_dashboard = _cron_home.parent.name == "profiles"
+    if os.getenv("HERMES_DESKTOP") == "1" or _is_profile_dashboard:
         cron_stop = threading.Event()
         cron_thread = threading.Thread(
             target=_start_desktop_cron_ticker,

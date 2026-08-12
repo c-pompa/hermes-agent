@@ -128,6 +128,16 @@ Remote naming (unified 2026-07-23, both Mac and mini):
 ## Fork delta (re-apply after each upstream sync)
 
 ### Core code patches (⚠ upstream-owned files — check first on every sync)
+- ⚠ `hermes_cli/web_server.py` (lifespan) — **cron ticker for isolated
+  profile dashboards (2026-08-12).** The dashboard cron ticker was gated on
+  `HERMES_DESKTOP=1`, so launchd-started `hermes -p <name> dashboard`
+  backends (home = `profiles/<name>`) never ticked: profile cron jobs (e.g.
+  hitl-v1's `cursor-transcript-sync`) only fired while the Desktop app had
+  that profile open. The ticker now also starts when `get_hermes_home()` is
+  a profile home; the `cron/.tick.lock` file lock keeps it at-most-once next
+  to a real gateway. Tests: `test_profile_dashboard_lifespan_starts_cron_ticker`
+  / `test_non_profile_dashboard_lifespan_skips_cron_ticker` in ⚠
+  `tests/hermes_cli/test_dashboard_admin_endpoints.py`.
 - **Cron per-job Discord results channel (2026-08-12).** A cron job can opt
   into ALSO posting its results to a per-job Discord text channel
   (`cron-<slug>`), strictly additive to its existing `deliver` targets —
