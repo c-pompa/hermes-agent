@@ -817,6 +817,28 @@ export interface CronDeliveryTarget {
   home_env_var: null | string
   home_target_set: boolean
   id: string
+  /** 'channel' entries are Discord text channels (id is `discord:<channel_id>`). */
+  kind?: 'channel' | 'platform'
+  name: string
+}
+
+// GET /api/cron/discord-channels — the guilds and text channels the connected
+// Discord bot can post cron results to. Backs the cron editor's "also post
+// results to a Discord channel" picker; guilds ride along so channel creation
+// can target a server when the bot is in more than one.
+export interface CronDiscordChannel {
+  guild: string
+  id: string
+  name: string
+}
+
+export interface CronDiscordChannelsResponse {
+  channels: CronDiscordChannel[]
+  guilds: CronDiscordGuild[]
+}
+
+export interface CronDiscordGuild {
+  id: string
   name: string
 }
 

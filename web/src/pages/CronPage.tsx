@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import type {
   CronJob,
   CronDeliveryTarget,
+  CronDiscordChannelsResponse,
   ModelOptionsResponse,
   ProfileInfo,
   SkillInfo,
@@ -18,6 +19,7 @@ import {
   buildCronJobPayload,
   cronJobHasExecutionContent,
   cronJobFormFromJob,
+  slugifyCronChannelName,
   type CronJobFormState,
 } from "@/lib/cron-job";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
@@ -126,6 +128,8 @@ interface CronJobFormResources {
   availableToolsets: ToolsetInfo[];
   modelOptions: ModelOptionsResponse | null;
   deliveryTargets: CronDeliveryTarget[];
+  discordChannels: CronDiscordChannelsResponse;
+  reloadDiscordChannels: () => void;
 }
 
 function emptyCronJobForm(): CronJobEditorState {
@@ -134,6 +138,7 @@ function emptyCronJobForm(): CronJobEditorState {
     prompt: "",
     schedule: "",
     deliver: "local",
+    discordChannelId: null,
     skills: [],
     provider: "",
     model: "",
@@ -179,6 +184,23 @@ function selectOptions(
         ]
       : []),
   ];
+}
+
+// Channel-create failures arrive as "<status>: {"detail":"..."}" — surface the
+// server detail (token reset, missing Manage Channels, pick a guild) inline,
+// falling back to a generic message when the body isn't JSON.
+function discordErrorMessage(err: unknown, fallback: string): string {
+  const body = (err instanceof Error ? err.message : String(err)).replace(
+    /^\d+:\s*/,
+    "",
+  );
+  try {
+    const parsed = JSON.parse(body) as { detail?: unknown };
+    if (typeof parsed.detail === "string" && parsed.detail) return parsed.detail;
+  } catch {
+    // Non-JSON body — use the fallback.
+  }
+  return fallback;
 }
 
 function CronAdvancedFields({
@@ -330,12 +352,64 @@ function CronJobFormFields({
   onChange,
 }: CronJobFormFieldsProps) {
   const { t } = useI18n();
-  const { availableSkills, availableToolsets, deliveryTargets, modelOptions } = resources;
+  const {
+    availableSkills,
+    availableToolsets,
+    deliveryTargets,
+    discordChannels,
+    modelOptions,
+    reloadDiscordChannels,
+  } = resources;
   const update = <K extends keyof CronJobEditorState,>(
     key: K,
     next: CronJobEditorState[K],
   ) => {
     onChange({ ...form, [key]: next });
+  };
+  // Optional per-job Discord results channel. Enabling it APPENDS
+  // `discord:<id>` to the deliver targets on save (composeDeliver); disabling
+  // strips only that entry — the base targets are never touched.
+  const [discordCreating, setDiscordCreating] = useState(false);
+  const [discordError, setDiscordError] = useState<string | null>(null);
+  const [discordGuildId, setDiscordGuildId] = useState("");
+  const discordStrings = t.cron.delivery;
+  // Live-slugified channel name for the create button: when a channel with
+  // that exact name already exists, the button just selects it instead.
+  const discordChannelName = slugifyCronChannelName(form.name.trim());
+  const existingDiscordChannel = discordChannels.channels.find(
+    (channel) => channel.name === discordChannelName,
+  );
+
+  const handleDiscordChannelCreate = async () => {
+    if (existingDiscordChannel) {
+      update("discordChannelId", existingDiscordChannel.id);
+      setDiscordError(null);
+      return;
+    }
+    setDiscordCreating(true);
+    setDiscordError(null);
+    try {
+      // One guild → the backend can infer it; several → pass the picked one
+      // (an empty pick comes back as a 400 whose detail we show inline).
+      const guilds = discordChannels.guilds;
+      const guildId = guilds.length === 1 ? guilds[0]?.id : discordGuildId;
+      const created = await api.createCronDiscordChannel(
+        form.name.trim(),
+        guildId || undefined,
+      );
+      reloadDiscordChannels();
+      update("discordChannelId", created.id);
+    } catch (e) {
+      setDiscordError(
+        discordErrorMessage(
+          e,
+          discordStrings.discordCreateFailed ??
+            "Failed to create the Discord channel.",
+        ),
+      );
+    } finally {
+      setDiscordCreating(false);
+    }
   };
   const onlyLocalAvailable =
     deliveryTargets.filter((target) => target.id !== "local").length === 0;
@@ -395,6 +469,84 @@ function CronJobFormFields({
             {t.cron.delivery.noneConfigured ??
               "No messaging platforms configured. Set one up under Channels to deliver reports."}
           </p>
+        )}
+      </div>
+
+      <div className="grid gap-2">
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            className="accent-foreground"
+            checked={form.discordChannelId !== null}
+            onChange={(e) => {
+              update("discordChannelId", e.target.checked ? "" : null);
+              setDiscordError(null);
+            }}
+          />
+          {discordStrings.discordToggle ??
+            "Also post results to a Discord channel"}
+        </label>
+
+        {form.discordChannelId !== null && (
+          <>
+            <Select
+              id={`${idPrefix}-discord-channel`}
+              value={form.discordChannelId}
+              onValueChange={(v) => update("discordChannelId", v)}
+            >
+              <SelectOption value="">
+                {discordStrings.discordPickChannel ?? "Pick a channel"}
+              </SelectOption>
+              {discordChannels.channels.map((channel) => (
+                <SelectOption key={channel.id} value={channel.id}>
+                  #{channel.name} — {channel.guild}
+                </SelectOption>
+              ))}
+            </Select>
+
+            {discordChannels.guilds.length > 1 && (
+              <Select
+                id={`${idPrefix}-discord-guild`}
+                value={discordGuildId}
+                onValueChange={setDiscordGuildId}
+              >
+                <SelectOption value="">
+                  {discordStrings.discordGuild ?? "Pick a server"}
+                </SelectOption>
+                {discordChannels.guilds.map((guild) => (
+                  <SelectOption key={guild.id} value={guild.id}>
+                    {guild.name}
+                  </SelectOption>
+                ))}
+              </Select>
+            )}
+
+            {form.name.trim() && (
+              <div>
+                <Button
+                  size="sm"
+                  onClick={() => void handleDiscordChannelCreate()}
+                  disabled={discordCreating}
+                  prefix={discordCreating ? <Spinner /> : undefined}
+                >
+                  {discordCreating
+                    ? (discordStrings.discordCreating ?? "Creating…")
+                    : existingDiscordChannel
+                      ? (discordStrings.discordUse ?? "Use #{channel}").replace(
+                          "{channel}",
+                          discordChannelName,
+                        )
+                      : (
+                          discordStrings.discordCreate ?? "Create #{channel}"
+                        ).replace("{channel}", discordChannelName)}
+                </Button>
+              </div>
+            )}
+
+            {discordError && (
+              <p className="text-xs text-destructive">{discordError}</p>
+            )}
+          </>
         )}
       </div>
 
@@ -547,6 +699,8 @@ export default function CronPage() {
   const [deliveryTargets, setDeliveryTargets] = useState<CronDeliveryTarget[]>([
     { id: "local", name: "Local", home_target_set: true, home_env_var: null },
   ]);
+  const [discordChannels, setDiscordChannels] =
+    useState<CronDiscordChannelsResponse>({ guilds: [], channels: [] });
   const [creating, setCreating] = useState(false);
 
   // Edit job modal state
@@ -602,6 +756,19 @@ export default function CronPage() {
         ]),
       );
   }, []);
+
+  // Discord channels for the per-job results-channel picker. Empty on failure
+  // so the form still works when Discord isn't connected.
+  const loadDiscordChannels = useCallback(() => {
+    api
+      .getCronDiscordChannels()
+      .then(setDiscordChannels)
+      .catch(() => setDiscordChannels({ guilds: [], channels: [] }));
+  }, []);
+
+  useEffect(() => {
+    loadDiscordChannels();
+  }, [loadDiscordChannels]);
 
   useEffect(() => {
     loadJobs();
@@ -866,6 +1033,8 @@ export default function CronPage() {
                   availableToolsets,
                   modelOptions,
                   deliveryTargets,
+                  discordChannels,
+                  reloadDiscordChannels: loadDiscordChannels,
                 }}
               />
 
@@ -926,6 +1095,8 @@ export default function CronPage() {
                   availableToolsets,
                   modelOptions,
                   deliveryTargets,
+                  discordChannels,
+                  reloadDiscordChannels: loadDiscordChannels,
                 }}
               />
 

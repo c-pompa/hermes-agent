@@ -19,6 +19,7 @@ from hermes_cli.web_deps import late
 from hermes_cli.web_models import (
     CronJobCreate,
     CronJobUpdate,
+    DiscordChannelCreate,
     AutomationBlueprintInstantiate,
 )
 
@@ -41,6 +42,8 @@ _pause_cron_job_sync = late("_pause_cron_job_sync")
 _resume_cron_job_sync = late("_resume_cron_job_sync")
 _trigger_cron_job_sync = late("_trigger_cron_job_sync")
 _delete_cron_job_sync = late("_delete_cron_job_sync")
+_list_cron_discord_channels_sync = late("_list_cron_discord_channels_sync")
+_create_cron_discord_channel_sync = late("_create_cron_discord_channel_sync")
 _find_cron_job_profile = late("_find_cron_job_profile")
 _fire_cron_job_for_profile = late("_fire_cron_job_for_profile")
 _call_cron_for_profile = late("_call_cron_for_profile")
@@ -85,6 +88,7 @@ async def get_cron_delivery_targets():
             "name": "Local (save only)",
             "home_target_set": True,
             "home_env_var": None,
+            "kind": "platform",
         }
     ]
     try:
@@ -94,6 +98,44 @@ async def get_cron_delivery_targets():
     except Exception:
         _log.exception("GET /api/cron/delivery-targets failed")
     return {"targets": targets}
+
+
+@router.get("/api/cron/discord-channels")
+async def list_cron_discord_channels():
+    """Guilds + existing text channels for the cron editor's Discord picker.
+
+    Powers the "create a results channel for this job" affordance: the UI
+    needs the guild list to disambiguate multi-guild bots and the channel
+    list to show/link channels it already provisioned. Discord-side failures
+    surface as 502 with a human-readable detail.
+    """
+    from cron.discord_channels import DiscordChannelError
+
+    try:
+        return await _run_cron_dashboard_io(_list_cron_discord_channels_sync)
+    except DiscordChannelError as exc:  # DiscordAuthError subclasses this
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/api/cron/discord-channels")
+async def create_cron_discord_channel(body: DiscordChannelCreate):
+    """Provision the per-job ``cron-<slug>`` Discord results channel.
+
+    Returns the created channel as ``{"id", "name"}``; the caller adds
+    ``discord:<id>`` to the job's ``deliver`` field. Nothing is persisted on
+    failure. Error mapping: Discord 401/403 → 502 (bad gateway — fix the bot
+    token/permissions); local resolution failures with no Discord status —
+    e.g. a multi-guild bot with no ``guild_id`` — → 400 (pick a guild).
+    """
+    from cron.discord_channels import DiscordAuthError, DiscordChannelError
+
+    try:
+        return await _run_cron_dashboard_io(_create_cron_discord_channel_sync, body)
+    except DiscordAuthError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except DiscordChannelError as exc:
+        status = 502 if getattr(exc, "status", None) is not None else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
 @router.put("/api/cron/jobs/{job_id}")

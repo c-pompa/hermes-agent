@@ -335,6 +335,15 @@ export interface Translations {
       email: string;
       needsHomeChannel?: string;
       noneConfigured?: string;
+      discordToggle?: string;
+      discordPickChannel?: string;
+      discordGuild?: string;
+      /** "{channel}" placeholder is replaced with the slugified channel name. */
+      discordCreate?: string;
+      /** "{channel}" placeholder is replaced with the slugified channel name. */
+      discordUse?: string;
+      discordCreating?: string;
+      discordCreateFailed?: string;
     };
   };
 

@@ -318,6 +318,13 @@ export const en: Translations = {
       needsHomeChannel: "set a home channel first",
       noneConfigured:
         "No messaging platforms configured. Set one up under Channels to deliver reports.",
+      discordToggle: "Also post results to a Discord channel",
+      discordPickChannel: "Pick a channel",
+      discordGuild: "Pick a server",
+      discordCreate: "Create #{channel}",
+      discordUse: "Use #{channel}",
+      discordCreating: "Creating…",
+      discordCreateFailed: "Failed to create the Discord channel.",
     },
   },
 

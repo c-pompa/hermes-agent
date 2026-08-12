@@ -4,7 +4,10 @@ export interface CronJobFormState {
   name: string;
   prompt: string;
   schedule: string;
+  /** Base delivery target(s); any `discord:<id>` entries are stripped on save. */
   deliver: string;
+  /** Picked Discord results channel id (null/"" = no Discord export). */
+  discordChannelId: string | null;
   skills: string[];
   provider: string;
   model: string;
@@ -14,6 +17,59 @@ export interface CronJobFormState {
   context_from: string;
   enabled_toolsets: string[];
   workdir: string;
+}
+
+const DISCORD_TARGET_PREFIX = "discord:";
+const DEFAULT_DELIVER_TARGET = "local";
+
+/** Split a comma-separated deliver target string into trimmed, non-empty entries. */
+export function splitDeliver(deliver: string): string[] {
+  return deliver
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+/** The Discord channel id a deliver string posts to (`discord:<id>`), or null. */
+export function extractDiscordChannelTarget(deliver: string): string | null {
+  for (const entry of splitDeliver(deliver)) {
+    if (entry.startsWith(DISCORD_TARGET_PREFIX)) {
+      const id = entry.slice(DISCORD_TARGET_PREFIX.length);
+      if (id) return id;
+    }
+  }
+  return null;
+}
+
+// Compose the stored deliver string from the base target(s) plus the optional
+// Discord channel export. Discord output is always additive: non-Discord
+// targets pass through untouched, any stale `discord:<id>` entries are dropped
+// first, and the picked channel is appended once. An empty base falls back to
+// "local" so the result is never an empty/duplicate/comma-dangling string.
+export function composeDeliver(
+  baseDeliver: string,
+  discordChannelId: string | null,
+): string {
+  const base = splitDeliver(baseDeliver).filter(
+    (entry) => !entry.startsWith(DISCORD_TARGET_PREFIX),
+  );
+  const targets = [...new Set(base.length > 0 ? base : [DEFAULT_DELIVER_TARGET])];
+  if (discordChannelId) targets.push(`${DISCORD_TARGET_PREFIX}${discordChannelId}`);
+  return targets.join(",");
+}
+
+// Client-side mirror of the backend's cron channel naming: lowercase,
+// spaces → "-", strip chars outside [a-z0-9_-], collapse dashes, prefix
+// "cron-". "LM Studio Release Review & Upgrade Advisor" →
+// "cron-lm-studio-release-review-upgrade-advisor".
+export function slugifyCronChannelName(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `cron-${slug}`;
 }
 
 /** Split a comma/newline list (or array) into trimmed, non-empty items. */
@@ -53,7 +109,7 @@ export function buildCronJobPayload(form: CronJobFormState): CronJobMutation {
     name: form.name.trim(),
     prompt: form.prompt.trim(),
     schedule: form.schedule.trim(),
-    deliver: form.deliver.trim() || "local",
+    deliver: composeDeliver(form.deliver, form.discordChannelId || null),
     skills: form.skills.filter(Boolean),
     provider: optionalText(form.provider),
     model: optionalText(form.model),
@@ -74,6 +130,7 @@ export function cronJobHasExecutionContent(
 }
 
 export function cronJobFormFromJob(job: CronJob): CronJobFormState {
+  const deliver = asString(job.deliver);
   return {
     name: asString(job.name),
     prompt: asString(job.prompt),
@@ -81,7 +138,10 @@ export function cronJobFormFromJob(job: CronJob): CronJobFormState {
       asString(job.schedule?.expr) ||
       asString(job.schedule?.run_at) ||
       asString(job.schedule_display),
-    deliver: asString(job.deliver) || "local",
+    // Split the stored deliver string: the base target(s) go to the picker, a
+    // `discord:<id>` entry (if any) seeds the Discord export toggle.
+    deliver: composeDeliver(deliver, null),
+    discordChannelId: extractDiscordChannelTarget(deliver),
     skills: Array.isArray(job.skills) ? job.skills.filter(Boolean) : [],
     provider: asString(job.provider),
     model: asString(job.model),

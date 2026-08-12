@@ -1323,6 +1323,7 @@ from hermes_cli.web_models import (  # noqa: F401
     SessionPrune,
     CronJobCreate,
     CronJobUpdate,
+    DiscordChannelCreate,
     AutomationBlueprintInstantiate,
     MCPServerCreate,
     MCPServersReplace,
@@ -11654,7 +11655,57 @@ from hermes_cli.web_routers.cron import (  # noqa: E402,F401 — legacy re-expor
     cron_fire_webhook,
     list_cron_blueprints,
     instantiate_blueprint,
+    list_cron_discord_channels,
+    create_cron_discord_channel,
 )
+
+
+def _run_cron_async(coro):
+    """Run an async cron provisioning helper from a sync worker thread.
+
+    The cron dashboard workers run in a threadpool (no running loop in that
+    thread), so a fresh short-lived event loop is the simplest safe bridge.
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
+def _list_cron_discord_channels_sync():
+    """Guilds + text channels for the cron editor's Discord picker.
+
+    Channels are listed live over the Discord REST API: the cached channel
+    directory only exists where a gateway process rebuilds it, which isolated
+    profile dashboards don't have.  A live-listing failure (except an auth
+    failure — the user must be told their token is dead) falls back to the
+    cached directory so the picker still shows something.
+    """
+    from cron.discord_channels import (
+        DiscordAuthError,
+        DiscordChannelError,
+        list_all_text_channels,
+        list_guilds,
+        list_text_channels,
+    )
+
+    guilds = _run_cron_async(list_guilds())
+    try:
+        channels = _run_cron_async(list_all_text_channels(guilds))
+    except DiscordAuthError:
+        raise
+    except DiscordChannelError:
+        _log.debug("discord channel live-list failed; using cached directory", exc_info=True)
+        channels = list_text_channels()
+    return {"guilds": guilds, "channels": channels}
+
+
+def _create_cron_discord_channel_sync(body: DiscordChannelCreate):
+    """Provision the per-job ``cron-<slug>`` Discord results channel."""
+    from cron.discord_channels import create_results_channel
+
+    return _run_cron_async(create_results_channel(body.name, guild_id=body.guild_id))
 
 
 def _get_cron_job_sync(job_id: str, profile: Optional[str] = None):

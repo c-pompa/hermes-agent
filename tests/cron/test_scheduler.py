@@ -220,6 +220,27 @@ class TestResolveDeliveryTarget:
         }
 
 
+    def test_local_plus_discord_channel_fanout(self):
+        """deliver='local,discord:12345' resolves the channel target alongside local.
+
+        ``local`` is save-only (no delivery target), so the resolved list
+        carries exactly the Discord channel target; the local save happens
+        regardless. This is the additive fan-out shape the per-job
+        ``cron-<slug>`` channels provision.
+        """
+        from cron.scheduler import _resolve_delivery_targets
+
+        job = {"deliver": "local,discord:12345"}
+        with patch(
+            "gateway.channel_directory.resolve_channel_name",
+            return_value=None,
+        ):
+            targets = _resolve_delivery_targets(job)
+        assert targets == [
+            {"platform": "discord", "chat_id": "12345", "thread_id": None},
+        ]
+
+
 class TestRoutingIntents:
     """``all`` routing intent expands at fire time."""
 
@@ -1551,7 +1572,79 @@ class TestCronDeliveryTargets:
         # Configured but no home channel → surfaced, flagged for the UI.
         assert targets["matrix"]["home_target_set"] is False
         assert targets["matrix"]["home_env_var"] == "MATRIX_HOME_ROOM"
+        assert targets["matrix"]["kind"] == "platform"
         assert targets["telegram"]["home_target_set"] is False
+
+    def test_discord_channel_entries_appended_when_directory_has_channels(self, monkeypatch):
+        """Each known Discord text channel becomes a ``discord:<id>`` target."""
+        from cron.scheduler import cron_delivery_targets
+        import cron.discord_channels as discord_channels
+
+        self._patch_connected(monkeypatch, ["discord"])
+        monkeypatch.delenv("DISCORD_HOME_CHANNEL", raising=False)
+        monkeypatch.setattr(
+            discord_channels,
+            "list_text_channels",
+            lambda: [
+                {"id": "111", "name": "cron-morning-brief", "guild": "Guild One"},
+                {"id": "222", "name": "general", "guild": "Guild One"},
+            ],
+        )
+
+        targets = cron_delivery_targets()
+        platforms = [t for t in targets if t["kind"] == "platform"]
+        channels = [t for t in targets if t["kind"] == "channel"]
+
+        assert [t["id"] for t in platforms] == ["discord"]
+        assert channels == [
+            {
+                "id": "discord:111",
+                "name": "#cron-morning-brief",
+                "home_target_set": True,
+                "home_env_var": None,
+                "kind": "channel",
+            },
+            {
+                "id": "discord:222",
+                "name": "#general",
+                "home_target_set": True,
+                "home_env_var": None,
+                "kind": "channel",
+            },
+        ]
+
+    def test_no_channel_entries_when_discord_not_connected(self, monkeypatch):
+        """Directory channels are only offered when Discord is connected."""
+        from cron.scheduler import cron_delivery_targets
+        import cron.discord_channels as discord_channels
+
+        self._patch_connected(monkeypatch, ["telegram"])
+        monkeypatch.delenv("TELEGRAM_HOME_CHANNEL", raising=False)
+        monkeypatch.setattr(
+            discord_channels,
+            "list_text_channels",
+            lambda: [{"id": "111", "name": "cron-x", "guild": "Guild One"}],
+        )
+
+        targets = cron_delivery_targets()
+        assert [t["kind"] for t in targets] == ["platform"]
+
+    def test_directory_read_failure_degrades_silently(self, monkeypatch):
+        """A broken directory read must never break the delivery-targets feed."""
+        from cron.scheduler import cron_delivery_targets
+        import cron.discord_channels as discord_channels
+
+        self._patch_connected(monkeypatch, ["discord"])
+        monkeypatch.delenv("DISCORD_HOME_CHANNEL", raising=False)
+
+        def boom():
+            raise RuntimeError("corrupt directory")
+
+        monkeypatch.setattr(discord_channels, "list_text_channels", boom)
+
+        targets = cron_delivery_targets()
+        assert [t["kind"] for t in targets] == ["platform"]
+        assert targets[0]["id"] == "discord"
 
 
 class TestHomeTargetEnvVarRegistry:

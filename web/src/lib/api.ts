@@ -636,6 +636,17 @@ export const api = {
     fetchJSON<CronJob[]>(`/api/cron/jobs?profile=${encodeURIComponent(profile)}`),
   getCronDeliveryTargets: () =>
     fetchJSON<{ targets: CronDeliveryTarget[] }>("/api/cron/delivery-targets"),
+  getCronDiscordChannels: () =>
+    fetchJSON<CronDiscordChannelsResponse>("/api/cron/discord-channels"),
+  // `name` is the raw job name — the backend slugifies it to
+  // `cron-<job-slug>`. Errors: 400 when a guild must be picked, 502 with a
+  // `detail` string (token reset / missing Manage Channels).
+  createCronDiscordChannel: (name: string, guildId?: string) =>
+    fetchJSON<CronDiscordChannel>("/api/cron/discord-channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(guildId ? { name, guild_id: guildId } : { name }),
+    }),
   createCronJob: (job: CronJobMutation, profile = "default") =>
     fetchJSON<CronJob>(`/api/cron/jobs?profile=${encodeURIComponent(profile)}`, {
       method: "POST",
@@ -2309,6 +2320,28 @@ export interface CronDeliveryTarget {
   name: string;
   home_target_set: boolean;
   home_env_var: string | null;
+  /** "channel" entries are Discord text channels (id is `discord:<channel_id>`). */
+  kind?: "platform" | "channel";
+}
+
+// GET /api/cron/discord-channels — the guilds and text channels the connected
+// Discord bot can post cron results to. Backs the cron form's "also post
+// results to a Discord channel" picker; guilds ride along so channel creation
+// can target a server when the bot is in more than one.
+export interface CronDiscordGuild {
+  id: string;
+  name: string;
+}
+
+export interface CronDiscordChannel {
+  id: string;
+  name: string;
+  guild: string;
+}
+
+export interface CronDiscordChannelsResponse {
+  guilds: CronDiscordGuild[];
+  channels: CronDiscordChannel[];
 }
 
 export interface AutomationBlueprintField {

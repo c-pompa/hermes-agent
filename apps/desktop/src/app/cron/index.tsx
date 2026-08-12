@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Codicon } from '@/components/ui/codicon'
 import {
   Dialog,
@@ -28,12 +29,15 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import {
   type AutomationBlueprint,
+  createCronDiscordChannel,
   createCronJob,
   type CronDeliveryTarget,
+  type CronDiscordChannel,
   type CronJob,
   deleteCronJob,
   getAutomationBlueprints,
   getCronDeliveryTargets,
+  getCronDiscordChannels,
   getCronJobRuns,
   getCronJobs,
   instantiateAutomationBlueprint,
@@ -73,7 +77,7 @@ import {
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
 import { BlueprintSlotControl, blueprintSlotHelp, cleanBlueprintFieldError, initialBlueprintValues } from './blueprints'
-import { cronEditorUpdates, jobIsScriptOnly, validateCronEditor } from './cron-job-model'
+import { composeDeliver, cronEditorUpdates, extractDiscordChannelTarget, jobIsScriptOnly, slugifyCronChannelName, validateCronEditor } from './cron-job-model'
 import { jobState, jobTitle, STATE_DOT } from './job-state'
 
 const DEFAULT_DELIVER = 'local'
@@ -431,7 +435,7 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
         prompt: values.prompt,
         schedule: values.schedule,
         name: values.name || undefined,
-        deliver: values.deliver || DEFAULT_DELIVER,
+        deliver: composeDeliver(values.deliver, values.discordChannelId),
         ...(values.model.trim() ? { model: values.model.trim(), provider: values.provider.trim() || undefined } : {})
       })
 
@@ -812,6 +816,29 @@ function DeliverSelect({
   )
 }
 
+// Channel-create failures arrive as "<status>: {"detail":"..."}" — surface the
+// server detail (token reset, missing Manage Channels, pick a guild) inline,
+// falling back to a generic message when the body isn't JSON.
+function discordErrorDetail(err: unknown, fallback: string): string {
+  const body = (err instanceof Error ? err.message : String(err)).replace(/^\d+:\s*/, '')
+
+  try {
+    const parsed: unknown = JSON.parse(body)
+
+    if (typeof parsed === 'object' && parsed !== null && 'detail' in parsed) {
+      const detail = (parsed as { detail: unknown }).detail
+
+      if (typeof detail === 'string' && detail) {
+        return detail
+      }
+    }
+  } catch {
+    // Non-JSON body — use the fallback.
+  }
+
+  return fallback
+}
+
 function CronEditorDialog({
   editor,
   onBlueprintCreate,
@@ -835,6 +862,14 @@ function CronEditorDialog({
   const [schedule, setSchedule] = useState('')
   const [schedulePreset, setSchedulePreset] = useState('daily')
   const [deliver, setDeliver] = useState(DEFAULT_DELIVER)
+  // Optional per-job Discord results channel. Enabling it APPENDS
+  // `discord:<id>` to the deliver targets on save (composeDeliver); disabling
+  // strips only that entry — the base targets are never touched.
+  const [discordEnabled, setDiscordEnabled] = useState(false)
+  const [discordChannelId, setDiscordChannelId] = useState<null | string>(null)
+  const [discordGuildId, setDiscordGuildId] = useState('')
+  const [discordCreating, setDiscordCreating] = useState(false)
+  const [discordError, setDiscordError] = useState<null | string>(null)
   // Per-job model override, encoded as `${providerSlug}:${model}` (split on the
   // first ':' when saving). MODEL_DEFAULT_VALUE = follow the global default.
   const [modelChoice, setModelChoice] = useState(MODEL_DEFAULT_VALUE)
@@ -881,6 +916,15 @@ function CronEditorDialog({
     enabled: open
   })
 
+  // Discord channels the bot can post to, for the optional results-channel
+  // picker. Loaded with the dialog; the create button refetches after making a
+  // channel so the fresh one shows up selected.
+  const discordChannels = useQuery({
+    queryKey: ['cron-discord-channels'],
+    queryFn: getCronDiscordChannels,
+    enabled: open
+  })
+
   useEffect(() => {
     if (!open) {
       return
@@ -890,7 +934,17 @@ function CronEditorDialog({
     setPrompt(initial ? jobPrompt(initial) : '')
     setSchedule(initial ? jobScheduleExpr(initial) : (SCHEDULE_OPTIONS[0].expr ?? ''))
     setSchedulePreset(initial ? scheduleOptionForExpr(jobScheduleExpr(initial)).value : 'daily')
-    setDeliver(initial ? jobDeliver(initial) : DEFAULT_DELIVER)
+    // Split the stored deliver string: the base target(s) go to the picker, a
+    // `discord:<id>` entry (if any) seeds the Discord export toggle.
+    const initialDeliver = initial ? jobDeliver(initial) : DEFAULT_DELIVER
+    const initialDiscord = extractDiscordChannelTarget(initialDeliver)
+
+    setDeliver(composeDeliver(initialDeliver, null))
+    setDiscordEnabled(initialDiscord !== null)
+    setDiscordChannelId(initialDiscord)
+    setDiscordGuildId('')
+    setDiscordCreating(false)
+    setDiscordError(null)
     setModelChoice(initial && jobModel(initial) ? `${jobProvider(initial)}:${jobModel(initial)}` : MODEL_DEFAULT_VALUE)
     setSlotValues({})
     setTemplateChoice(CUSTOM_TEMPLATE)
@@ -922,6 +976,39 @@ function CronEditorDialog({
   }
 
   const scheduleHint = scheduleSummary(selectedScheduleOption, schedule, c)
+
+  const discordChannelList = discordChannels.data?.channels ?? []
+  const discordGuildList = discordChannels.data?.guilds ?? []
+  // Live-slugified channel name for the create button: when a channel with
+  // that exact name already exists, the button just selects it instead.
+  const discordChannelName = slugifyCronChannelName(name.trim())
+  const existingDiscordChannel = discordChannelList.find(channel => channel.name === discordChannelName)
+
+  async function handleDiscordChannelCreate() {
+    if (existingDiscordChannel) {
+      setDiscordChannelId(existingDiscordChannel.id)
+      setDiscordError(null)
+
+      return
+    }
+
+    setDiscordCreating(true)
+    setDiscordError(null)
+
+    try {
+      // One guild → the backend can infer it; several → pass the picked one
+      // (an empty pick comes back as a 400 whose detail we show inline).
+      const guildId = discordGuildList.length === 1 ? (discordGuildList[0]?.id ?? '') : discordGuildId
+      const created: CronDiscordChannel = await createCronDiscordChannel(name.trim(), guildId || undefined)
+
+      await discordChannels.refetch()
+      setDiscordChannelId(created.id)
+    } catch (err) {
+      setDiscordError(discordErrorDetail(err, c.discordCreateFailed))
+    } finally {
+      setDiscordCreating(false)
+    }
+  }
 
   // Configured providers with at least one available model — mirrors the chat
   // model picker's gate so only actually-selectable models are offered.
@@ -969,6 +1056,7 @@ function CronEditorDialog({
     try {
       await onSave({
         deliver,
+        discordChannelId: discordEnabled ? discordChannelId : null,
         model: overrideModel,
         name: name.trim(),
         prompt: prompt.trim(),
@@ -1132,6 +1220,72 @@ function CronEditorDialog({
               </Field>
             </div>
 
+            <Field htmlFor="cron-discord-channel" label={c.discordLabel} optional optionalLabel={c.optional}>
+              <label className="flex items-center gap-2 text-xs text-foreground">
+                <Checkbox
+                  checked={discordEnabled}
+                  id="cron-discord-enabled"
+                  onCheckedChange={checked => {
+                    setDiscordEnabled(checked === true)
+                    setDiscordError(null)
+                  }}
+                />
+                {c.discordEnable}
+              </label>
+
+              {discordEnabled && (
+                <div className="grid gap-2">
+                  <Select onValueChange={setDiscordChannelId} value={discordChannelId ?? undefined}>
+                    <SelectTrigger className="h-9 rounded-md" id="cron-discord-channel">
+                      <SelectValue placeholder={c.discordChannelPlaceholder} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {discordChannelList.map(channel => (
+                        <SelectItem key={channel.id} value={channel.id}>
+                          #{channel.name} — {channel.guild}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {discordGuildList.length > 1 && (
+                    <Select onValueChange={setDiscordGuildId} value={discordGuildId || undefined}>
+                      <SelectTrigger className="h-9 rounded-md">
+                        <SelectValue placeholder={c.discordGuildPlaceholder} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {discordGuildList.map(guild => (
+                          <SelectItem key={guild.id} value={guild.id}>
+                            {guild.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {name.trim() && (
+                    <div>
+                      <Button
+                        disabled={discordCreating}
+                        onClick={() => void handleDiscordChannelCreate()}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        {discordCreating
+                          ? c.discordCreating
+                          : existingDiscordChannel
+                            ? c.discordUse(discordChannelName)
+                            : c.discordCreate(discordChannelName)}
+                      </Button>
+                    </div>
+                  )}
+
+                  {discordError && <FieldHint error>{discordError}</FieldHint>}
+                </div>
+              )}
+            </Field>
+
             {!scriptOnlyJob && (
               <Field htmlFor="cron-model" label={c.modelLabel} optional optionalLabel={c.optional}>
                 <Select onValueChange={setModelChoice} value={modelChoice}>
@@ -1210,6 +1364,8 @@ type EditorState = { job: CronJob; mode: 'edit' } | { mode: 'closed' } | { mode:
 
 interface EditorValues {
   deliver: string
+  /** Picked Discord results channel id (null = no Discord export). */
+  discordChannelId: null | string
   /** Per-job model override ('' = follow the global default). */
   model: string
   name: string

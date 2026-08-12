@@ -1438,6 +1438,14 @@ export interface Translations {
     frequencyLabel: string
     deliverLabel: string
     deliverNeedsHomeChannel: string
+    discordLabel: string
+    discordEnable: string
+    discordChannelPlaceholder: string
+    discordGuildPlaceholder: string
+    discordCreate: (channel: string) => string
+    discordUse: (channel: string) => string
+    discordCreating: string
+    discordCreateFailed: string
     modelLabel: string
     modelDefault: string
     customScheduleLabel: string

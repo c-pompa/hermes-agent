@@ -1101,9 +1101,10 @@ def cron_delivery_targets() -> list[dict]:
     room/channel cron posts to) is set — a platform can be configured for
     interactive use but still lack the home target an unattended cron job needs.
 
-    Returns a list of dicts: ``{"id", "name", "home_target_set", "home_env_var"}``
-    ordered by the gateway's canonical platform order. Callers should always
-    prepend the implicit ``local`` option themselves — it needs no config.
+    Returns a list of dicts: ``{"id", "name", "home_target_set", "home_env_var",
+    "kind"}`` ordered by the gateway's canonical platform order. Callers should
+    always prepend the implicit ``local`` option themselves — it needs no
+    config.
     """
     targets: list[dict] = []
     try:
@@ -1127,8 +1128,33 @@ def cron_delivery_targets() -> list[dict]:
                 "name": name.replace("_", " ").title(),
                 "home_target_set": bool(_get_home_target_chat_id(name)),
                 "home_env_var": env_var or None,
+                "kind": "platform",
             }
         )
+
+    # Per-channel Discord targets: every text channel the connected bot can
+    # see is a valid additive fan-out destination (``discord:<channel_id>``).
+    # Best-effort — a missing/corrupt channel directory just means no channel
+    # entries; this feed must never fail.
+    if "discord" in connected:
+        try:
+            from cron.discord_channels import list_text_channels
+
+            for channel in list_text_channels():
+                targets.append(
+                    {
+                        "id": f"discord:{channel['id']}",
+                        "name": f"#{channel['name']}",
+                        "home_target_set": True,
+                        "home_env_var": None,
+                        "kind": "channel",
+                    }
+                )
+        except Exception:
+            logger.debug(
+                "cron_delivery_targets: discord channel directory unavailable",
+                exc_info=True,
+            )
     return targets
 
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, SecretStr, field_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator
 
 
 # --- from web_server.py (originally lines 1273-1372) ---
@@ -376,6 +376,11 @@ class CronJobCreate(BaseModel):
 
 class CronJobUpdate(BaseModel):
     updates: dict
+
+
+class DiscordChannelCreate(BaseModel):
+    name: str = Field(min_length=1)  # raw cron job name; slugified server-side
+    guild_id: Optional[str] = None
 
 
 # --- from web_server.py (originally lines 12924-12926) ---
