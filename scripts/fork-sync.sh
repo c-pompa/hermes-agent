@@ -89,8 +89,6 @@ PATCH_FILES=(
   apps/desktop/src/i18n/types.ts apps/desktop/src/i18n/en.ts
   apps/desktop/src/i18n/zh.ts apps/desktop/src/i18n/zh-hant.ts
   apps/desktop/src/i18n/ja.ts apps/desktop/src/i18n/ar.ts
-  # 2026-08-12 gateway-pill plugin defaultEnabled: false (dogfood duplicate)
-  apps/desktop/src/plugins/gateway-pill/plugin.tsx
 )
 
 cd "$REPO"

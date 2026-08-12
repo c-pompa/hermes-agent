@@ -8,6 +8,8 @@ pointed at a fixture log tail.
 
 import time
 
+from datetime import datetime
+
 import pytest
 from fastapi import HTTPException
 
@@ -45,8 +47,11 @@ def seeded_store(tmp_path, monkeypatch):
 @pytest.fixture()
 def log_source(tmp_path, monkeypatch):
     path = tmp_path / "agent.log"
+    # Fresh timestamp: the summary endpoint filters to its since_minutes
+    # window, so a hardcoded date ages out of it (write-time bomb).
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S,000")
     path.write_text(
-        "2026-08-02 14:55:31,466 WARNING [sess-9] agent.conversation_loop: "
+        f"{ts} WARNING [sess-9] agent.conversation_loop: "
         "API call failed (attempt 1/3) error_type=AuthenticationError "
         "thread=Thread-19 (run):13036318720 provider=model-router "
         "base_url=http://127.0.0.1:8867/v1 model=hermes/main "

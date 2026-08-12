@@ -156,8 +156,10 @@ Remote naming (unified 2026-07-23, both Mac and mini):
     block: toggle + channel picker + Create/Use `cron-<slug>` button;
     `composeDeliver` appends `discord:<id>`, strips only the managed entry,
     never touches non-Discord targets.
-  - ⚠ `apps/desktop/src/plugins/gateway-pill/plugin.tsx` — `defaultEnabled:
-    false` (dogfood duplicate of the native gateway-health statusbar item).
+  - `apps/desktop/src/plugins/gateway-pill/plugin.tsx` — our `defaultEnabled:
+    false` patch (2026-08-12) was DROPPED in the 2026-08-12 sync: upstream
+    deleted the dogfood gateway-pill plugin outright (the native statusbar
+    item is the only one now). Removed from fork-sync PATCH_FILES.
   - Tests: `tests/cron/test_discord_channels.py`,
     `tests/hermes_cli/test_cron_discord_channels.py` (both NEW/additive),
     ⚠ `tests/cron/test_scheduler.py`, ⚠ desktop/web cron test files.
