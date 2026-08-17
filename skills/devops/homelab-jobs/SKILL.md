@@ -53,7 +53,7 @@ Manage: `launchctl print gui/$(id -u)/<label>` ·
 | `ai.hermes.dashboard` | Main Hermes dashboard (loopback, SSH-tunneled) | :9119 |
 | `ai.hermes.dashboard.hitl-v1` | hitl-v1 profile dashboard | :9121 |
 | `ai.hermes.dashboard.homelab` | homelab profile dashboard | :9122 |
-| `ai.hermes.metricsdash` | Metrics dashboard (`~/hermes-metrics-dash/app.py`, **Python 3.9** — no `\|` type unions). **Loopback-only since 2026-08-15** (`METRICS_BIND=127.0.0.1` in the plist), fronted by `tailscale serve` → `christians-mini.tailf1af7f.ts.net:8899`. Cannot bind 0.0.0.0 (tailscaled holds the tailnet IPs). Reach it via the tailnet name, not the LAN IP. **Windows forwarders (Pomps-PC, DESKTOP-39NF657) are NOT on the tailnet and are currently blind** — pending decision: bind to the LAN IP `10.88.1.208` specifically + retarget tailscale serve | :8899 |
+| `ai.hermes.metricsdash` | Metrics dashboard (`~/hermes-metrics-dash/app.py`, **Python 3.9** — no `\|` type unions). Binds the **LAN IP `10.88.1.208` specifically** (NOT 0.0.0.0 — tailscaled holds the tailnet IPs; NOT loopback — Windows forwarders aren't on the tailnet). `tailscale serve` :8899 retargeted to the LAN IP 2026-08-17, so tailnet + LAN both work. All local clients (metricsfwd, hitlfwd, gateway webhook in config.yaml) use `http://10.88.1.208:8899`, not 127.0.0.1 | :8899 |
 | `ai.hermes.metricsfwd` | Metrics forwarder (jsonl → metricsdash) | — |
 | `ai.hermes.hitlfwd` | hitl-v1 SSE → metricsdash forwarder (`:8010/api/events` → `:8899/ingest`) | — |
 | `ai.hermes.healthdigest` | Health digest | — |
