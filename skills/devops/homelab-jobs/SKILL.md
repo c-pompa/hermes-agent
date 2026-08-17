@@ -49,11 +49,11 @@ Manage: `launchctl print gui/$(id -u)/<label>` ·
 
 | Label | Purpose | Port |
 |---|---|---|
-| `ai.hermes.gateway` | Hermes gateway (OpenAI-compatible api_server) | :8642 |
+| `ai.hermes.gateway` | Hermes gateway (OpenAI-compatible api_server), binds `0.0.0.0` — the shared LAN endpoint `hermes-serv.cpompa.com:8642`; keep it LAN-bound (set via `api_server.extra.host` in `~/.hermes/config.yaml`, NOT loopback — an Aug-15 session flipped it to 127.0.0.1 and cut off every LAN client; restored 2026-08-17) | :8642 |
 | `ai.hermes.dashboard` | Main Hermes dashboard (loopback, SSH-tunneled) | :9119 |
 | `ai.hermes.dashboard.hitl-v1` | hitl-v1 profile dashboard | :9121 |
 | `ai.hermes.dashboard.homelab` | homelab profile dashboard | :9122 |
-| `ai.hermes.metricsdash` | Metrics dashboard (`~/hermes-metrics-dash/app.py`, **Python 3.9** — no `\|` type unions) | :8899 |
+| `ai.hermes.metricsdash` | Metrics dashboard (`~/hermes-metrics-dash/app.py`, **Python 3.9** — no `\|` type unions). **Loopback-only since 2026-08-15** (`METRICS_BIND=127.0.0.1` in the plist), fronted by `tailscale serve` → `christians-mini.tailf1af7f.ts.net:8899`. Cannot bind 0.0.0.0 (tailscaled holds the tailnet IPs). Reach it via the tailnet name, not the LAN IP. **Windows forwarders (Pomps-PC, DESKTOP-39NF657) are NOT on the tailnet and are currently blind** — pending decision: bind to the LAN IP `10.88.1.208` specifically + retarget tailscale serve | :8899 |
 | `ai.hermes.metricsfwd` | Metrics forwarder (jsonl → metricsdash) | — |
 | `ai.hermes.hitlfwd` | hitl-v1 SSE → metricsdash forwarder (`:8010/api/events` → `:8899/ingest`) | — |
 | `ai.hermes.healthdigest` | Health digest | — |
