@@ -121,6 +121,9 @@ echo "no collisions"
 echo "== build worktree at NEW =="
 case "$WT" in /tmp/*|"$TMPDIR"*) ;; *) echo "ERROR: WT must be under /tmp"; exit 1;; esac
 rm -rf "$WT"
+# /tmp cleaners can delete $WT while git still has it registered
+# ("missing but already registered worktree" — exit 128 on 2026-08-16/17).
+git worktree prune
 git worktree add --detach "$WT" "$NEW" >/dev/null
 for f in "${ADDITIVE[@]}"; do
   if git cat-file -e "$FORK_REMOTE/main:$f" 2>/dev/null; then
