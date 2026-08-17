@@ -14,7 +14,9 @@
 set -uo pipefail
 
 MINI_SSH="${MINI_SSH:-christianpompa@10.88.1.208}"
-MINI_HTTP="${MINI_HTTP:-http://10.88.1.208}"
+# metricsdash binds loopback since 2026-08-15 (tailnet-only exposure via
+# `tailscale serve`); reach it over the tailnet, not the LAN IP.
+MINI_HTTP="${MINI_HTTP:-http://christians-mini.tailf1af7f.ts.net}"
 GATEWAY_HTTP="${GATEWAY_HTTP:-http://hermes-serv.cpompa.com:8642}"
 FAILS=0
 
