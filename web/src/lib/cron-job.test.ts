@@ -27,6 +27,7 @@ function form(overrides: Partial<CronJobFormState> = {}): CronJobFormState {
     script: "",
     no_agent: false,
     context_from: "",
+    continuity: false,
     enabled_toolsets: [],
     workdir: "",
     ...overrides,
@@ -58,6 +59,22 @@ describe("buildCronJobPayload", () => {
       context_from: ["upstream-a", "upstream-b"],
       enabled_toolsets: ["web"],
     });
+  });
+
+  it("stores continuity as the reserved self entry", () => {
+    const payload = buildCronJobPayload(
+      form({ continuity: true, context_from: "upstream-a" }),
+    );
+
+    expect(payload.context_from).toEqual(["upstream-a", "self"]);
+  });
+
+  it("continuity off strips any hand-typed self entry", () => {
+    const payload = buildCronJobPayload(
+      form({ continuity: false, context_from: "SELF\nupstream-a" }),
+    );
+
+    expect(payload.context_from).toEqual(["upstream-a"]);
   });
 
   it("keeps clear operations explicit for update payloads", () => {
@@ -106,7 +123,22 @@ describe("cronJobFormFromJob", () => {
     expect(cronJobFormFromJob(job)).toMatchObject({
       schedule: "every 1h",
       context_from: "upstream-a\nupstream-b",
+      continuity: false,
       enabled_toolsets: ["web"],
+    });
+  });
+
+  it("splits the stored self entry into the continuity toggle", () => {
+    const job: CronJob = {
+      id: "abc",
+      enabled: true,
+      schedule_display: "every 1h",
+      context_from: ["self", "upstream-a"],
+    };
+
+    expect(cronJobFormFromJob(job)).toMatchObject({
+      context_from: "upstream-a",
+      continuity: true,
     });
   });
 

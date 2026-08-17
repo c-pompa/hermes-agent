@@ -545,9 +545,35 @@ class TestSessionManagementEndpoints:
         assert r.status_code == 200
         body = r.json()
         assert body["matched"] >= 1
+        assert "skipped_open" in body
         assert "oldest_started_at" in body and "newest_started_at" in body
         assert "oldest_last_active" in body and "newest_last_active" in body
         assert all("last_active" in session for session in body["sessions"])
+
+    def test_prune_reports_open_sessions_excluded_by_safety_guard(self):
+        from hermes_state import SessionDB
+
+        db = SessionDB()
+        db.create_session(session_id="sess-old-open", source="skip-test")
+        db._conn.execute(
+            "UPDATE sessions SET started_at = ? WHERE id = ?",
+            (1.0, "sess-old-open"),
+        )
+        db._conn.commit()
+        db.close()
+
+        r = self.client.post(
+            "/api/sessions/prune",
+            json={"older_than_days": 1, "source": "skip-test"},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["removed"] == 0
+        assert body["skipped_open"] == 1
+
+        db = SessionDB()
+        assert db.get_session("sess-old-open") is not None
+        db.close()
 
 
 
@@ -976,55 +1002,6 @@ def test_spawn_hermes_action_scrubs_gateway_loop_guard_env(monkeypatch, tmp_path
 # ---------------------------------------------------------------------------
 # Desktop lifespan reaps orphan gateways at serve startup (#77276)
 # ---------------------------------------------------------------------------
-
-def test_profile_dashboard_lifespan_starts_cron_ticker(
-    monkeypatch, _isolate_hermes_home, tmp_path
-):
-    """Isolated profile dashboards (launchd `hermes -p <name> dashboard`) must
-    run the cron ticker themselves — no gateway ticks a profile home, so
-    without it their jobs only fire while the Desktop app has that profile
-    open. The tick lock keeps this safe next to a real gateway."""
-    import hermes_cli.web_server as ws
-
-    started = []
-
-    monkeypatch.delenv("HERMES_DESKTOP", raising=False)
-    monkeypatch.setattr(ws, "_warm_gateway_module", lambda: None)
-    monkeypatch.setattr(
-        ws, "_start_desktop_cron_ticker", lambda *_args: started.append(True)
-    )
-    monkeypatch.setattr(
-        ws, "get_hermes_home", lambda: tmp_path / "profiles" / "hitl-v1"
-    )
-
-    client, _header = _client()
-    with client:
-        pass
-
-    assert started == [True]
-
-
-def test_non_profile_dashboard_lifespan_skips_cron_ticker(
-    monkeypatch, _isolate_hermes_home, tmp_path
-):
-    """A plain server dashboard keeps relying on its own gateway's ticker."""
-    import hermes_cli.web_server as ws
-
-    started = []
-
-    monkeypatch.delenv("HERMES_DESKTOP", raising=False)
-    monkeypatch.setattr(ws, "_warm_gateway_module", lambda: None)
-    monkeypatch.setattr(
-        ws, "_start_desktop_cron_ticker", lambda *_args: started.append(True)
-    )
-    monkeypatch.setattr(ws, "get_hermes_home", lambda: tmp_path / ".hermes")
-
-    client, _header = _client()
-    with client:
-        pass
-
-    assert started == []
-
 
 def test_desktop_lifespan_reaps_orphan_gateways_on_startup(
     monkeypatch, _isolate_hermes_home

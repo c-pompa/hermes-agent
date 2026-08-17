@@ -15,7 +15,29 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-08-02 (candidate prepared) — vendoring upstream `a6defd4f1`
+**Last sync:** 2026-08-17 — vendored upstream `5de09f7b0`
+(1,689 commits since `76d832d38`; v2026.8.16.2+5). Patch verdicts:
+**one patch ABSORBED upstream** — `slot_metrics` in `agent/moa_trace.py`
+is now native upstream (identical semantics: `_slot_trace` minus
+`input_messages`); our copy dropped, only our `_save_moa_metrics`
+(metrics-dashboard feed, ungated) kept alongside it. Five 3-way
+conflicts, all resolved upstream-first: `agent/conversation_loop.py`
+(upstream now routes appends through `message_metadata.append_message`;
+our empty-content+reasoning `_INTERRUPTED_PLACEHOLDER` write-side fix
+ported on top), `agent/moa_trace.py` (see above),
+`web/src/lib/cron-job.ts` (upstream absorbed the `context_from`/"self"
+continuity normalization — ours dropped; our Discord deliver split
+`composeDeliver`/`extractDiscordChannelTarget` ported),
+`apps/desktop/src/app/cron/index.tsx` (upstream added the
+`mutateAndRefreshCronJobs` wrapper on create — kept; our
+`composeDeliver(values.deliver, values.discordChannelId)` ported into
+it), `tests/run_agent/test_message_sequence_repair.py` (upstream added
+dedup assertions; our leading-user-invariant Pass 3 /
+`ensure_user_leads_api_messages` tests appended — still absent upstream).
+Everything else applied cleanly. Targeted tests green in the vendor
+worktree: **204 passed** (message-sequence-repair, tool_guardrails,
+session_search, moa_observability_bridge, cron scheduler).
+**Previous sync:** 2026-08-02 (candidate prepared) — vendoring upstream `a6defd4f1`
 (635 commits since `126ff7071`; v2026.7.30+497). Patch verdicts:
 **one patch DROPPED** — `agent/image_routing.py` (2026-06, magic-byte MIME
 sniffing) is now native upstream in identical form
