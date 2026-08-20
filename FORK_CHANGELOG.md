@@ -505,6 +505,19 @@ Remote naming (unified 2026-07-23, both Mac and mini):
 - `FORK_UPDATE_RUNBOOK.md` — step-by-step procedure for updating this fork to a
   newer upstream while re-applying this delta, and deploying to the mini
   (gateway server) + client machines. Read it before doing an update.
+- **`fork-upgrader` plugin (2026-08-20, lives OUTSIDE the repo at
+  `~/.hermes/plugins/fork-upgrader/` + `~/.hermes/desktop-plugins/fork-upgrader/`)** —
+  fork-aware upgrade assistant: backend API (`/api/plugins/fork-upgrader/`:
+  status/preview/impact/report read-only; prepare/test/publish/deploy as
+  confirm-gated background jobs), agent tools (`fork_upgrade` with
+  `preserve_fork=true` default, `fork_upgrade_report`), dashboard "Upgrades"
+  tab, and a desktop half (statusbar chip + upgrader pane + a Settings →
+  About card via the `settings.about` slot patch above). Wraps
+  `fork-sync.sh`/`fork-verify-fleet.sh`; never merges upstream. Fail-closed:
+  publish/deploy need `allowed_actions` in `plugins.entries.fork-upgrader`
+  plus confirm=true. Enabled in `plugins.enabled` on MBP + mini; synced to
+  the mini via rsync (plugin dir is not in the repo — sync it manually when
+  it changes).
 
 ### Agent code — ours, but bundled with a vendored sync ⚠
 - `agent/image_routing.py` — sniff magic bytes for image MIME, ignore a

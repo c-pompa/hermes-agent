@@ -290,6 +290,15 @@ reset/force-pushed back from the Mac if a bad snapshot was published.
 
 Same actions, same order, every release. ~30–60 min when patches apply clean.
 
+> **Assisted path (2026-08-20):** the `fork-upgrader` plugin
+> (`~/.hermes/plugins/fork-upgrader/`, outside this repo) wraps this whole
+> section — agent tool `fork_upgrade` (status → preview → impact → prepare →
+> test → publish → deploy), dashboard "Upgrades" tab, desktop statusbar chip
+> + pane + Settings → About card. Publish/deploy stay human-gated
+> (`allowed_actions` config + confirm). This runbook remains the reference
+> for what the plugin automates; fall back to it when the plugin's verdicts
+> look wrong.
+
 1. **Assess upstream.** Run `scripts/fork-sync.sh` on the Mac: fetches both
    remotes, counts/logs the new upstream commits, collision-checks the
    additive delta, builds `/tmp/hermes-vendor` at the new upstream HEAD,
