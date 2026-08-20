@@ -408,6 +408,18 @@ Remote naming (unified 2026-07-23, both Mac and mini):
   `[preview] openExternal failed…` to desktop.log and calls
   `shell.showItemInFolder` — deterministic and cross-platform. Requires the
   packaged app rebuild (`hermes desktop --build-only`) after re-applying.
+- `apps/desktop/src/app/settings/about-settings.tsx` — **`settings.about`
+  plugin contribution slot under the native Updates section (2026-08-20).**
+  Renders `<Slot area="settings.about" />` between the automatic-updates
+  ListRow and the UninstallSection — null when no plugin contributes, so the
+  page is byte-identical in behavior without the plugin. Our `fork-upgrader`
+  desktop plugin mounts its fork-upgrade card there (next to the native
+  update chip/section, per user request). One import + one component; resolve
+  upstream-first on sync conflicts (keep their section layout, re-place the
+  Slot at the end of the Updates block). Candidate for a future upstream PR
+  in the #64182 lane (same shape as the #66899 desktop-plugins door).
+  Requires the packaged app rebuild (`hermes desktop --build-only`) +
+  re-sign after re-applying.
 - `agent/tool_guardrails.py` + `tests/agent/test_tool_guardrails.py` —
   **no-progress loop guard applies to ALL tools (2026-07-29, commit
   `9a69ed84e`).** Upstream's no-progress detector (identical args +

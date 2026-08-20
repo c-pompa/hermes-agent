@@ -61,6 +61,8 @@ PATCH_FILES=(
   apps/desktop/src/store/session.ts apps/desktop/src/global.d.ts
   apps/desktop/src/contrib/runtime-loader.ts
   apps/desktop/src/app/settings/plugins-settings.tsx
+  # 2026-08-20 settings.about plugin contribution slot (FORK_CHANGELOG.md)
+  apps/desktop/src/app/settings/about-settings.tsx
   agent/tool_guardrails.py tests/agent/test_tool_guardrails.py
   tools/session_search_tool.py tui_gateway/ws.py
   tests/tools/test_session_search.py

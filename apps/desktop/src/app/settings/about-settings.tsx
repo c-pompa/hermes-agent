@@ -20,6 +20,7 @@ import {
 
 import { ListRow, SectionHeading, SettingsContent } from './primitives'
 import { UninstallSection } from './uninstall-section'
+import { Slot } from '@/contrib/react/slot'
 
 const RELEASE_NOTES_URL = 'https://github.com/NousResearch/hermes-agent/releases'
 const INSTALLER_URL = 'https://hermes-agent.nousresearch.com/'
@@ -204,6 +205,12 @@ export function AboutSettings() {
           hint={a.branchCommit(status?.branch ?? 'unknown', status?.currentSha?.slice(0, 7) ?? 'unknown')}
           title={a.automaticUpdates}
         />
+
+        {/* Plugin contribution slot under the native Updates section (fork
+            patch, 2026-08-20): renders nothing unless a plugin contributes to
+            the 'settings.about' area — our fork-upgrader desktop plugin mounts
+            its fork-upgrade card here. Additive; upstream-first on conflicts. */}
+        <Slot area="settings.about" />
 
         <UninstallSection />
       </div>
