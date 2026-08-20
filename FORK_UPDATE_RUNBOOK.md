@@ -90,7 +90,7 @@ skills/creative/comfyui/workflows/wanvideo-i2v-landscape.md.json
 (The two `*.meta.json` sidecars under `skills/creative/comfyui/workflows/`
 are ours too — they appear in the `diff --name-only` list above.) **Since the
 2026-07-20 sync the delta also includes CODE PATCHES on upstream-owned files**
-(`gateway/run.py`, `agent/moa_loop.py`, `agent/moa_trace.py`, `run_agent.py`,
+(`agent/moa_loop.py`, `agent/moa_trace.py`, `run_agent.py`,
 `hermes_cli/web_server.py`, `tui_gateway/slash_worker.py`,
 `agent/agent_runtime_helpers.py`, `agent/conversation_loop.py`,
 `tests/run_agent/test_message_sequence_repair.py`, `hermes_cli/main.py`,

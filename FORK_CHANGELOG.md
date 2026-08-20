@@ -15,7 +15,40 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-08-17 — vendored upstream `5de09f7b0`
+**Last sync:** 2026-08-20 — vendored upstream `45f11263b`
+(667 commits since `5de09f7b0`; v2026.8.18+513). Patch verdicts:
+**one patch DROPPED** — `gateway/run.py` terminal-env per-turn re-bridge:
+upstream's `e471c7165` loader-level fix (`load_hermes_dotenv` →
+`apply_terminal_config_to_env`, `hermes_cli/env_loader.py:578`) now
+re-asserts config.yaml's `terminal.*` over the reloaded .env on EVERY
+load, including the gateway per-turn reload — strictly superior to our
+gateway-only hoist. `gateway/run.py` is byte-identical to upstream and
+leaves `PATCH_FILES`; gate test
+`tests/gateway/test_runtime_env_reload_config_authority.py` green on the
+pristine upstream file. Two 3-way conflicts, both resolved
+upstream-first: `agent/tool_guardrails.py` (upstream added the
+`agent.stall_guards` identical-call notice — `STALL_GUARD_*` /
+`observe_identical_call` kept; our all-tools no-progress patch already
+merged cleanly in the check paths, so the conflicted regions were
+exactly the dead idempotent/mutating taxonomy + `_is_idempotent`, now
+dropped), `apps/desktop/src/hermes.ts` (upstream split the monolith into
+an `src/api/*` barrel — taken wholesale; our two cron-Discord functions
+ported into `src/api/cron.ts` on the new `hermesApi`/`connectionScoped`
+conventions, type re-exports added to the barrel). Everything else
+applied cleanly. `agent/auxiliary_client.py` NIM `reasoning`-skip
+re-verified still needed (upstream's new reasoning→Responses-API
+translation does not gate the NIM route). All 6 tracker PRs
+(#77973/#77977/#77979/#77984/#77990/#77991) still unmerged — patches
+stay. Desktop typecheck clean (tsc ×3). Targeted tests green in the
+vendor worktree: **354 passed** (message-sequence-repair,
+tool_guardrails, session_search, file_read_guards, gateway
+env-reload authority, cron scheduler + discord_channels, api-errors
+suite, dashboard admin endpoints, moa_observability_bridge).
+**Sync-script fix bundled:** `fork-sync.sh` `mktemp` template moved the
+X's to the end (`/tmp/fork-delta-XXXXXXXX`) — BSD mktemp never
+substituted mid-name X's, so every second run died with
+`mkstemp failed … File exists` on the stale literal file.
+**Previous sync:** 2026-08-17 — vendored upstream `5de09f7b0`
 (1,689 commits since `76d832d38`; v2026.8.16.2+5). Patch verdicts:
 **one patch ABSORBED upstream** — `slot_metrics` in `agent/moa_trace.py`
 is now native upstream (identical semantics: `_slot_trace` minus
@@ -250,7 +283,18 @@ Remote naming (unified 2026-07-23, both Mac and mini):
   `register_from_config(load_config(), accept_hooks=False)` at startup,
   mirroring `gateway/run.py` (consent via `hooks_auto_accept`/env).
 - `gateway/run.py` — **per-turn .env reload clobbering terminal config fix
-  (2026-07-10; ported 2026-07-20).** `_reload_runtime_env_preserving_config_authority()` reloads
+  (2026-07-10; ported 2026-07-20) — DROPPED 2026-08-20 (fixed upstream).**
+  Upstream's `e471c7165` made `load_hermes_dotenv()` re-apply config.yaml's
+  explicit `terminal.*` keys over the reloaded .env on every load
+  (`hermes_cli/env_loader.py:578` → `hermes_cli/config.py:3474`
+  `apply_terminal_config_to_env`) — loader-level, so it covers the gateway
+  per-turn reload AND cron/batch_runner. Verified: pristine upstream
+  `gateway/run.py` passes
+  `tests/gateway/test_runtime_env_reload_config_authority.py` in this
+  snapshot. Our `_TERMINAL_CONFIG_ENV_MAP` /
+  `_bridge_terminal_env_from_config` hoist is gone; `gateway/run.py`
+  removed from `PATCH_FILES`. Do NOT re-apply; verify on each sync that
+  the loader re-assert remains. Original patch notes below for the record: `_reload_runtime_env_preserving_config_authority()` reloads
   `~/.hermes/.env` with `override=True` every turn (via
   `_current_max_iterations()`) but only re-bridged `agent.max_turns` — so a
   stale `TERMINAL_ENV=docker` in `.env` silently overrode config.yaml's

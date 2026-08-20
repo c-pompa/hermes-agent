@@ -52,7 +52,6 @@ ADDITIVE=(
 # Upstream-owned files carrying our code patches (see FORK_CHANGELOG.md §"Core
 # code patches"). Re-applied by 3-way apply; conflicts resolve upstream-first.
 PATCH_FILES=(
-  gateway/run.py
   agent/moa_loop.py agent/moa_trace.py run_agent.py
   hermes_cli/web_server.py tui_gateway/slash_worker.py
   agent/agent_runtime_helpers.py agent/conversation_loop.py
@@ -134,7 +133,7 @@ for f in "${ADDITIVE[@]}"; do
 done
 
 echo "== re-apply code patches (3-way) =="
-PATCH=$(mktemp /tmp/fork-delta.XXXXXX.patch)
+PATCH=$(mktemp /tmp/fork-delta-XXXXXXXX)
 git diff "$BASE" "$FORK_REMOTE/main" -- "${PATCH_FILES[@]}" > "$PATCH"
 if [ -s "$PATCH" ]; then
   if ! git -C "$WT" apply --3way "$PATCH"; then
