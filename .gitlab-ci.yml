@@ -1,19 +1,83 @@
 # CI for cpompa/hermes-agent personal fork on gitlab.cpompa.com.
 #
-# Upstream NousResearch CI runs on GitHub Actions; this only validates the
-# personal customizations under skills/mlops/models/comfyui/. Keeps the
-# self-hosted runner cycle-cost low and avoids re-running upstream's full
-# matrix on a homelab single-runner setup.
+# Upstream NousResearch CI runs on GitHub Actions; this pipeline:
+#   1. validates the personal customizations under skills/**/comfyui/
+#      (validate-comfyui-skill, the original job), and
+#   2. mirrors the highest-value upstream GitHub Actions lanes
+#      (js-tests.yml, lint.yml, tests.yml smoke slice, uv-lockfile-check.yml)
+#      so fork changes get real signal without upstream's full matrix.
 #
-# Runner: homelab-pc-shell (project_type, run_untagged=true) — see
-# memory project_homelab_gitlab.md for topology.
+# Runner: homelab-pc-shell (project_type, run_untagged=true, macOS arm64
+# shell executor) — see memory project_homelab_gitlab.md for topology.
+# `image:` is ignored by the shell executor; node/npm/uv live on the host
+# PATH (~/.local/bin). The alpine image below only matters if a docker
+# executor ever picks these jobs up.
+#
+# Skipped upstream lanes (deliberately): rust (no cargo on runner), Windows
+# installer tests, docker/nix builds, GitHub-API-specific jobs.
 
 default:
   image: python:3.11-alpine
 
 stages:
   - validate
+  - test
 
+# ── Shared rule/change anchors ──────────────────────────────────────────────
+# Fail-open fallback: manual/web pipelines and pushes to the default branch
+# always run every job (mirrors upstream's fail-open detect job). Otherwise
+# jobs gate on rules:changes globs.
+.rule-web: &rule-web
+  if: $CI_PIPELINE_SOURCE == "web"
+.rule-default-branch: &rule-default-branch
+  if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.js-changes: &js-changes
+  - apps/**/*
+  - web/**/*
+  - ui-tui/**/*
+  - package.json
+  - package-lock.json
+
+.py-changes: &py-changes
+  - "**/*.py"
+  - pyproject.toml
+  - uv.lock
+
+# npm workspaces are hoisted from the root; cache the installed trees keyed
+# on the lockfile and skip `npm ci` on a hit (npm ci wipes node_modules, so
+# running it unconditionally would defeat the cache).
+.node-modules-cache: &node-modules-cache
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - node_modules/
+    - apps/desktop/node_modules/
+    - apps/shared/node_modules/
+    - web/node_modules/
+    - ui-tui/node_modules/
+    - ui-tui/packages/*/node_modules/
+    - tests-js/node_modules/
+
+.npm-ci: &npm-ci
+  - node --version && npm --version
+  - if [ ! -d node_modules ] || [ ! -d apps/desktop/node_modules ] || [ ! -d web/node_modules ]; then npm ci; fi
+
+# uv's own cache (~/.cache/uv) persists on this shell runner, so `uv sync`
+# is cheap; the .venv cache just avoids re-linking on lockfile-identical runs.
+.uv-sync: &uv-sync
+  - uv --version
+  - uv sync --locked --python 3.11 --extra all --extra dev
+
+.venv-cache: &venv-cache
+  key:
+    files:
+      - uv.lock
+  paths:
+    - .venv/
+
+# ── Original job (unchanged) ────────────────────────────────────────────────
 validate-comfyui-skill:
   stage: validate
   before_script:
@@ -34,3 +98,123 @@ validate-comfyui-skill:
     - if: $CI_PIPELINE_SOURCE == "push"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "web"
+
+# ── P1: JS/TS checks (mirrors upstream js-tests.yml) ───────────────────────
+js:lint-desktop:
+  stage: test
+  cache: *node-modules-cache
+  before_script: *npm-ci
+  script:
+    - npm run --prefix apps/desktop check:lint
+  rules:
+    - *rule-web
+    - *rule-default-branch
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *js-changes
+
+js:test-plugins-desktop:
+  stage: test
+  cache: *node-modules-cache
+  before_script: *npm-ci
+  # node --test over the plugin SDK tests — highest-value lane: the fork's
+  # headline feature is the desktop plugin system.
+  script:
+    - npm run --prefix apps/desktop check:test:plugins
+  rules:
+    - *rule-web
+    - *rule-default-branch
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *js-changes
+
+js:test-desktop:
+  stage: test
+  cache: *node-modules-cache
+  before_script: *npm-ci
+  # vitest unit suite for the desktop app.
+  script:
+    - npm run --prefix apps/desktop test
+  rules:
+    - *rule-web
+    - *rule-default-branch
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *js-changes
+
+js:check-shared:
+  stage: test
+  cache: *node-modules-cache
+  before_script: *npm-ci
+  script:
+    - npm run --prefix apps/shared check
+  rules:
+    - *rule-web
+    - *rule-default-branch
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *js-changes
+
+js:check-web:
+  stage: test
+  cache: *node-modules-cache
+  before_script: *npm-ci
+  script:
+    - npm run --prefix web check
+  rules:
+    - *rule-web
+    - *rule-default-branch
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *js-changes
+
+# ── P2: python lint + smoke tests (mirrors upstream lint.yml + tests.yml) ──
+python:lint:
+  stage: test
+  # Blocking ruff check — enforces [tool.ruff.lint.select] in pyproject.toml.
+  script:
+    - uv tool install ruff
+    - ruff check .
+  rules:
+    - *rule-web
+    - *rule-default-branch
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *py-changes
+
+python:smoke-tests:
+  stage: test
+  cache: *venv-cache
+  before_script: *uv-sync
+  # Fast slice of the python suite covering the fork's most-touched areas.
+  # (pyproject addopts already excludes `integration` tests.)
+  script:
+    - uv run python -m pytest tests/plugins tests/gateway -x -q
+  rules:
+    - *rule-web
+    - *rule-default-branch
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *py-changes
+
+python:macos-marker:
+  stage: test
+  cache: *venv-cache
+  before_script: *uv-sync
+  # macOS-specific tests; the runner is a macOS arm64 host so these actually
+  # exercise their target platform (upstream mostly runs them on linux).
+  script:
+    - uv run python -m pytest -m "macos_only and not integration" -q
+  rules:
+    - *rule-web
+    - *rule-default-branch
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *py-changes
+
+# ── P3: uv lockfile check (mirrors upstream uv-lockfile-check.yml) ─────────
+uv:lock-check:
+  stage: test
+  # Blocking: catches pyproject.toml / uv.lock drift before the docker build
+  # (`uv sync --frozen`) does.
+  script:
+    - uv lock --check
+  rules:
+    - *rule-web
+    - *rule-default-branch
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - pyproject.toml
+        - uv.lock
