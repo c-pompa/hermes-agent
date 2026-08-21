@@ -523,8 +523,9 @@ export const en: Translations = {
       terminalFontPreview: 'Glyph preview',
       terminalFontReset: 'Use default',
       translucencyTitle: 'Window Translucency',
-      translucencyDesc: 'See your desktop through the whole window, text and all.',
-      translucencyGlassDesc: 'Matte glass: the desktop shows through as a smooth blur while text stays sharp.',
+      translucencyDesc: 'See your desktop through the whole window, text and all. Tuned separately for light and dark.',
+      translucencyGlassDesc:
+        'Matte glass: the desktop shows through as a smooth blur while text stays sharp. Tuned separately for light and dark.',
       translucencyModeClear: 'Clear',
       translucencyModeGlass: 'Glass',
       translucencyTintTitle: 'Tint',
@@ -2520,6 +2521,14 @@ export const en: Translations = {
     pidLabel: pid => `PID ${pid}`,
     technicalDetails: 'Technical details',
     notNow: 'Not now',
+    clientAlsoBehindTitle: 'Desktop app is behind',
+    clientAlsoBehindMessage:
+      'The backend is up to date, but this desktop app is still on an older version. Update it to pick up the latest fixes.',
+    clientAlsoBehindAction: 'Update desktop app',
+    everythingDispatched: 'Update dispatched',
+    everythingSkipped: 'Skipped',
+    everythingRowFailed: 'Update failed',
+    everythingFanoutFailedTitle: 'Couldn’t update other instances',
     applyStatus: {
       preparing: 'Updating backend…',
       pulling: 'Backend updating…',
