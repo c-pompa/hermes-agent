@@ -1,6 +1,8 @@
 import type {
   AutomationBlueprint,
   CronDeliveryTarget,
+  CronDiscordChannel,
+  CronDiscordChannelsResponse,
   CronJob,
   CronJobCreatePayload,
   CronJobUpdates,
@@ -60,6 +62,32 @@ export async function getCronDeliveryTargets(): Promise<CronDeliveryTarget[]> {
   })
 
   return targets ?? []
+}
+
+// Discord guilds + text channels the connected bot can post cron results to.
+// Backs the cron editor's "also post results to a Discord channel" picker;
+// guilds ride along so channel creation can target a server when the bot is
+// in more than one.
+export function getCronDiscordChannels(): Promise<CronDiscordChannelsResponse> {
+  return hermesApi<CronDiscordChannelsResponse>({
+    ...profileScoped(),
+    ...connectionScoped(),
+    path: '/api/cron/discord-channels'
+  })
+}
+
+// Create a Discord text channel for a cron job. `name` is the raw job name —
+// the backend slugifies it to `cron-<job-slug>`. Errors: 400 when a guild must
+// be picked, 502 with a `detail` string (token reset / missing Manage
+// Channels) — the editor surfaces `detail` inline.
+export function createCronDiscordChannel(name: string, guildId?: string): Promise<CronDiscordChannel> {
+  return hermesApi<CronDiscordChannel>({
+    ...profileScoped(),
+    ...connectionScoped(),
+    path: '/api/cron/discord-channels',
+    method: 'POST',
+    body: guildId ? { guild_id: guildId, name } : { name }
+  })
 }
 
 export function createCronJob(body: CronJobCreatePayload): Promise<CronJob> {

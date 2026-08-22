@@ -228,6 +228,14 @@ Remote naming (unified 2026-07-23, both Mac and mini):
   - Tests: `tests/cron/test_discord_channels.py`,
     `tests/hermes_cli/test_cron_discord_channels.py` (both NEW/additive),
     ⚠ `tests/cron/test_scheduler.py`, ⚠ desktop/web cron test files.
+  - ⚠ `apps/desktop/src/api/cron.ts` joined `PATCH_FILES` (2026-08-22):
+    upstream's `aa20dbe73` refactor split `hermes.ts` into `src/api/*` domain
+    modules and our `getCronDiscordChannels` / `createCronDiscordChannel`
+    moved with it, but the file was never listed — the 2026-08-21 vendor
+    (`a86569bd1`) silently dropped both functions while `app/cron/index.tsx`
+    kept importing them, breaking the desktop build ("App build out of date"
+    warning could not be rebuilt away). Hunk restored from the last good
+    build (`ccc4229e7`); listed so the 3-way re-apply carries it forward.
 - ⚠ `hermes_cli/main.py` (`cmd_dashboard`) — **register outbound webhooks for
   `serve`/`dashboard` backends (2026-08-03).** `_prepare_agent_startup()`
   (which wires `hooks.outbound`) only runs for `_AGENT_COMMANDS`

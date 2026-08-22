@@ -86,6 +86,10 @@ PATCH_FILES=(
   apps/desktop/src/app/cron/cron-job-model.ts
   apps/desktop/src/app/cron/cron-job-model.test.ts
   apps/desktop/src/app/cron/index.tsx
+  # api/cron.ts: upstream's aa20dbe73 refactor split hermes.ts into src/api/*
+  # and our discord-channel functions moved with it — patch the file where
+  # they live now (dropped silently by the 2026-08-21 vendor, broke the build)
+  apps/desktop/src/api/cron.ts
   apps/desktop/src/hermes.ts apps/desktop/src/types/hermes.ts
   apps/desktop/src/i18n/types.ts apps/desktop/src/i18n/en.ts
   apps/desktop/src/i18n/zh.ts apps/desktop/src/i18n/zh-hant.ts
