@@ -118,6 +118,23 @@ class TestPerJobToolsetMcpMerge:
         assert m_platform.call_args[0][1] == "cron"
         assert set(result) == set(sentinel)
 
+    def test_resolver_keeps_memory_in_per_job_list(self):
+        result = _resolve_cron_enabled_toolsets(
+            {"enabled_toolsets": ["memory", "file"]},
+            {"mcp_servers": {}},
+        )
+        assert "memory" in result
+        assert "file" in result
+
+    def test_resolver_keeps_memory_from_platform_fallback(self):
+        job = {"enabled_toolsets": None}
+        with patch(
+            "hermes_cli.tools_config._get_platform_tools",
+            return_value={"web", "memory", "file"},
+        ):
+            result = _resolve_cron_enabled_toolsets(job, {})
+        assert result == ["file", "memory", "web"]
+
 
 class TestResolveOrigin:
     def test_full_origin(self):
@@ -631,16 +648,15 @@ class TestRunJobSessionPersistence:
             yield fake_db, mock_agent_cls
 
 
-    def test_run_job_memory_toolset_disabled_in_cron(self, tmp_path):
-        """memory toolset must be disabled in cron sessions — issue #38129.
+    def test_run_job_memory_enabled_in_cron(self, tmp_path):
+        """Cron agents get memory like any other agent run.
 
-        Cron agents are constructed with skip_memory=True, so the memory
-        backend is not initialised.  Exposing the memory tool only gives the
-        model an unbacked tool that fails at runtime with
-        "Memory is not available."  Hiding it from the schema prevents that.
+        skip_memory=False and the memory toolset is not policy-denied, so
+        MEMORY.md/USER.md load and the memory tool follows normal toolset
+        resolution.
         """
         job = {
-            "id": "memory-hide-job",
+            "id": "memory-enabled-job",
             "name": "test",
             "prompt": "hello",
         }
@@ -648,18 +664,13 @@ class TestRunJobSessionPersistence:
             run_job(job)
 
         kwargs = mock_agent_cls.call_args.kwargs
-        assert "memory" in (kwargs["disabled_toolsets"] or []), (
-            "memory toolset should be disabled in cron to match skip_memory=True"
+        assert kwargs["skip_memory"] is False
+        assert "memory" not in (kwargs["disabled_toolsets"] or []), (
+            "memory toolset must not be policy-denied in cron"
         )
 
-    def test_run_job_disables_memory_even_when_per_job_enables_it(self, tmp_path):
-        """Cron runs pass skip_memory=True, so memory must not be exposed.
-
-        A cron job can request the memory tool through enabled_toolsets, but
-        there is no MemoryStore injected for cron agents.  Keep memory in the
-        disabled set so AIAgent filters the unbacked tool out before the model
-        can call it and receive "Memory is not available" failures.
-        """
+    def test_run_job_keeps_per_job_memory_toolset(self, tmp_path):
+        """A per-job enabled_toolsets naming memory keeps it."""
         job = {
             "id": "memory-toolset-job",
             "name": "test",
@@ -670,9 +681,10 @@ class TestRunJobSessionPersistence:
             run_job(job)
 
         kwargs = mock_agent_cls.call_args.kwargs
-        assert kwargs["skip_memory"] is True
-        assert kwargs["enabled_toolsets"] == ["memory", "file"]
-        assert "memory" in kwargs["disabled_toolsets"]
+        assert kwargs["skip_memory"] is False
+        assert "memory" in (kwargs["enabled_toolsets"] or [])
+        assert "file" in (kwargs["enabled_toolsets"] or [])
+        assert "memory" not in kwargs["disabled_toolsets"]
 
     def test_tick_skips_due_jobs_while_dispatch_is_paused(self, tmp_path):
         """The drain gate runs before advancing a due job's schedule."""
@@ -2203,12 +2215,21 @@ class TestCronDeliveryTargets:
 
         targets = {t["id"]: t for t in cron_delivery_targets()}
 
-        assert set(targets) == {"matrix", "telegram"}
+        # bot-chat:<profile> entries (machine-local Bot Chat injection) ride
+        # the same listing but are not gateway platforms — scope the
+        # platform assertions to the gateway entries.
+        platform_targets = {k: v for k, v in targets.items() if not k.startswith("bot-chat")}
+
+        assert set(platform_targets) == {"matrix", "telegram"}
         # Configured but no home channel → surfaced, flagged for the UI.
-        assert targets["matrix"]["home_target_set"] is False
-        assert targets["matrix"]["home_env_var"] == "MATRIX_HOME_ROOM"
-        assert targets["matrix"]["kind"] == "platform"
-        assert targets["telegram"]["home_target_set"] is False
+        assert platform_targets["matrix"]["home_target_set"] is False
+        assert platform_targets["matrix"]["home_env_var"] == "MATRIX_HOME_ROOM"
+        assert platform_targets["matrix"]["kind"] == "platform"
+        assert platform_targets["telegram"]["home_target_set"] is False
+        # Bot Chat targets need no home channel: whatever profiles exist on
+        # this machine must all be listed as ready.
+        bot_chat = [v for k, v in targets.items() if k.startswith("bot-chat")]
+        assert all(t["home_target_set"] for t in bot_chat)
 
     def test_discord_channel_entries_appended_when_directory_has_channels(self, monkeypatch):
         """Each known Discord text channel becomes a ``discord:<id>`` target."""
@@ -2227,8 +2248,8 @@ class TestCronDeliveryTargets:
         )
 
         targets = cron_delivery_targets()
-        platforms = [t for t in targets if t["kind"] == "platform"]
-        channels = [t for t in targets if t["kind"] == "channel"]
+        platforms = [t for t in targets if t.get("kind") == "platform"]
+        channels = [t for t in targets if t.get("kind") == "channel"]
 
         assert [t["id"] for t in platforms] == ["discord"]
         assert channels == [
@@ -2262,7 +2283,10 @@ class TestCronDeliveryTargets:
         )
 
         targets = cron_delivery_targets()
-        assert [t["kind"] for t in targets] == ["platform"]
+        # Bot Chat profile entries (no ``kind``) may also be present — scope
+        # the assertion to typed entries; nothing channel-shaped may appear.
+        assert [t["kind"] for t in targets if t.get("kind")] == ["platform"]
+        assert not [t for t in targets if str(t["id"]).startswith("discord:")]
 
     def test_directory_read_failure_degrades_silently(self, monkeypatch):
         """A broken directory read must never break the delivery-targets feed."""
@@ -2278,7 +2302,9 @@ class TestCronDeliveryTargets:
         monkeypatch.setattr(discord_channels, "list_text_channels", boom)
 
         targets = cron_delivery_targets()
-        assert [t["kind"] for t in targets] == ["platform"]
+        # Bot Chat profile entries (no ``kind``) may also be present — scope
+        # the assertion to typed entries; the platform entry must still lead.
+        assert [t["kind"] for t in targets if t.get("kind")] == ["platform"]
         assert targets[0]["id"] == "discord"
 
 

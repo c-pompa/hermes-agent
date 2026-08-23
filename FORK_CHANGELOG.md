@@ -15,7 +15,30 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-08-20 — vendored upstream `45f11263b`
+**Last sync:** 2026-08-22 — vendored upstream `7a54ab22e6`
+(234 commits since `a86569bd1`; v0.20.4 → v0.20.5; also backfills the
+missing entry for `47c2d42c4`, the 2026-08-21 vendor of `a86569bd1`).
+Patch verdicts: **zero dropped, zero absorbed** this cycle. Three 3-way
+conflicts, all in the cron delivery-targets area, all resolved keep-both:
+`cron/scheduler.py` (upstream added per-profile Bot Chat targets to
+`cron_delivery_targets()`; our per-channel Discord entries appended after
+them), `tools/cronjob_tools.py` (`deliver` docstring now documents both
+upstream's `'bot-chat[:<profile>]'` and our `'discord:<channel_id>'`),
+`tests/cron/test_scheduler.py` (both sides' assertions kept; three of our
+Discord tests ported to filter on `t.get("kind")` because Bot Chat entries
+carry no `kind`). Remaining 60 patched files applied cleanly.
+`agent/auxiliary_client.py` NIM `reasoning`-skip re-verified still needed.
+All 6 tracker PRs (#77973/#77977/#77979/#77984/#77990/#77991) still
+unmerged upstream — patches stay. Gates green in the vendor worktree:
+targeted pytest **320 passed** (scheduler, discord_channels,
+message-sequence-repair, tool_guardrails, session_search, file_read_guards,
+moa_observability_bridge, api-errors suite), web/desktop/electron `tsc`
+clean, vitest cron suites **26 + 28 passed**. Upstream security work now
+included: gateway control-socket hardening (#92447), authenticated browser
+control broker + permission gates, skills_guard DNS-exfiltration FP fix,
+atomic state backups, `hermes update --plan` fork-aware updater.
+
+**Previous sync:** 2026-08-20 — vendored upstream `45f11263b`
 (667 commits since `5de09f7b0`; v2026.8.18+513). Patch verdicts:
 **one patch DROPPED** — `gateway/run.py` terminal-env per-turn re-bridge:
 upstream's `e471c7165` loader-level fix (`load_hermes_dotenv` →
