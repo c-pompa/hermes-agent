@@ -49,7 +49,7 @@ haven't.
 - **Mac checkout:** `~/.hermes/hermes-agent` — has working gitlab push creds.
   May be running `hermes --tui`; keep its working tree undisturbed (do snapshot
   builds in a throwaway `git worktree`).
-- **mini (gateway server):** host `christianpompa@10.88.1.208`,
+- **mini (gateway server):** host `christianpompa@10.88.5.52`,
   checkout `/Users/christianpompa/.hermes/hermes-agent`.
   - Gateway: launchd label `ai.hermes.gateway`, OpenAI-compatible API on
     **`:8642`** (`/health` is open; `/v1/*` needs the api_server key).
@@ -180,17 +180,17 @@ temporary branch, then reset `main` to it.
 ```bash
 # --- from the Mac ---
 COMMIT=<the snapshot sha you just pushed>
-git push "ssh://christianpompa@10.88.1.208/Users/christianpompa/.hermes/hermes-agent" \
+git push "ssh://christianpompa@10.88.5.52/Users/christianpompa/.hermes/hermes-agent" \
   "$COMMIT:refs/heads/incoming"
 
 # --- on the mini ---
-ssh christianpompa@10.88.1.208 'cd ~/.hermes/hermes-agent &&
+ssh christianpompa@10.88.5.52 'cd ~/.hermes/hermes-agent &&
   git status -s &&                                   # expect clean tree
   git merge-base --is-ancestor main incoming && echo "FF OK" &&
   git checkout -q main && git reset --hard incoming && git branch -D incoming'
 
 # --- config drift check (do NOT auto-edit .env) ---
-ssh christianpompa@10.88.1.208 'cd ~/.hermes/hermes-agent &&
+ssh christianpompa@10.88.5.52 'cd ~/.hermes/hermes-agent &&
   comm -13 <(grep -oE "^[A-Z][A-Z0-9_]+=" .env | sed "s/=.*/=/" | sort -u) \
            <(grep -oE "^#?[[:space:]]*[A-Z][A-Z0-9_]+=" .env.example | sed -E "s/^#?[[:space:]]*//;s/=.*/=/" | sort -u)'
 #   ^ lists .env.example keys not set in live .env. New OPTIONAL provider keys
@@ -198,13 +198,13 @@ ssh christianpompa@10.88.1.208 'cd ~/.hermes/hermes-agent &&
 #     changing would be unusual — flag loudly if so.
 
 # --- rebuild venv (editable; gateway keeps running on in-memory code) ---
-ssh christianpompa@10.88.1.208 'cd ~/.hermes/hermes-agent &&
+ssh christianpompa@10.88.5.52 'cd ~/.hermes/hermes-agent &&
   ~/.local/bin/uv pip install -e ".[all]" --python .venv/bin/python'
 #   check the output for errors; "Installed/Uninstalled N packages" with no
 #   error lines = good. (uv re-resolves; most deps are cached so it's fast.)
 
 # --- restart services (brief downtime) ---
-ssh christianpompa@10.88.1.208 'U=$(id -u);
+ssh christianpompa@10.88.5.52 'U=$(id -u);
   launchctl kickstart -k gui/$U/ai.hermes.gateway;
   launchctl kickstart -k gui/$U/ai.hermes.dashboard'
 ```
@@ -214,7 +214,7 @@ ssh christianpompa@10.88.1.208 'U=$(id -u);
 ## 6. Verification checklist (on the mini)
 
 ```bash
-ssh christianpompa@10.88.1.208 '
+ssh christianpompa@10.88.5.52 '
   cd ~/.hermes/hermes-agent;
   ./.venv/bin/hermes --version;                                   # shows new local sha
   curl -s -m6 -o/dev/null -w "gateway /health -> %{http_code}\n" http://127.0.0.1:8642/health;
@@ -254,7 +254,7 @@ get the new server behavior:
 - **Hermes Desktop app** (e.g. MacBook): connects to the dashboard at
   `http://127.0.0.1:9119` through a **persistent SSH tunnel** to the mini
   (LaunchAgent `com.cpompa.hermes-tunnel` runs
-  `ssh -N -L 127.0.0.1:9119:127.0.0.1:9119 christianpompa@10.88.1.208`).
+  `ssh -N -L 127.0.0.1:9119:127.0.0.1:9119 christianpompa@10.88.5.52`).
   After a server update just **reload the dashboard / relaunch the app**. Keep
   the installed Desktop app version roughly in step with the server when
   upstream changes the dashboard API.
@@ -274,7 +274,7 @@ own tunnel (anti-DNS-rebinding rejects non-loopback Host headers).
 
 ```bash
 # on the mini
-ssh christianpompa@10.88.1.208 'U=$(id -u); cd ~/.hermes/hermes-agent &&
+ssh christianpompa@10.88.5.52 'U=$(id -u); cd ~/.hermes/hermes-agent &&
   git reset --hard backup/pre-update-<YYYYMMDD> &&
   ~/.local/bin/uv pip install -e ".[all]" --python .venv/bin/python &&
   launchctl kickstart -k gui/$U/ai.hermes.gateway &&

@@ -2,7 +2,7 @@
 # fork-verify-fleet.sh — post-update / daily smoke verification of the homelab
 # Hermes fleet. Companion to FORK_UPDATE_RUNBOOK.md (§6) and fork-auto-update.sh.
 #
-# Checks (run from the MBP; mini is 10.88.1.208):
+# Checks (run from the MBP; mini is 10.88.5.52):
 #   gateway :8642/health, loopback dashboards :9119/:9121/:9122 (via ssh),
 #   metrics dashboard :8899 API surface — overview (about/usage-map/recent/
 #   session-names), benchmark (marks/best/samples), events (hitl-events),
@@ -13,8 +13,8 @@
 
 set -uo pipefail
 
-MINI_SSH="${MINI_SSH:-christianpompa@10.88.1.208}"
-# metricsdash binds the mini LAN IP (10.88.1.208) since 2026-08-17;
+MINI_SSH="${MINI_SSH:-christianpompa@10.88.5.52}"
+# metricsdash binds the mini LAN IP (10.88.5.52) since 2026-08-17;
 # the tailnet name also works via `tailscale serve`. Either base is fine.
 MINI_HTTP="${MINI_HTTP:-http://christians-mini.tailf1af7f.ts.net}"
 GATEWAY_HTTP="${GATEWAY_HTTP:-http://hermes-serv.cpompa.com:8642}"
