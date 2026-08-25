@@ -49,8 +49,18 @@ haven't.
 - **Mac checkout:** `~/.hermes/hermes-agent` — has working gitlab push creds.
   May be running `hermes --tui`; keep its working tree undisturbed (do snapshot
   builds in a throwaway `git worktree`).
-- **mini (gateway server):** host `christianpompa@10.88.5.52`,
+- **mini (gateway server):** host `christianpompa@100.73.11.35` (**Tailscale —
+  survives LAN renumbering**; LAN `10.88.5.52` also works today),
   checkout `/Users/christianpompa/.hermes/hermes-agent`.
+  - The address lives in TWO places, edited together by the fork-upgrader
+    plugin's **Settings → About → gateway → edit** row (or
+    `upgrade_core.set_gateway_address`): `plugins.entries.fork-upgrader.
+    gateway_host` in `~/.hermes/config.yaml` (deploy/drain target) and
+    `ProgramArguments[3]` of `~/Library/LaunchAgents/com.cpompa.hermes-tunnel.
+    plist` (the desktop's loopback tunnel: 9119/9121/9122). If the mini's
+    address ever changes again, use that editor — do NOT hand-edit one and
+    forget the other. After a plist edit the job must be reloaded
+    (`bootout` + `bootstrap`; a plain kickstart keeps the old args).
   - Gateway: launchd label `ai.hermes.gateway`, OpenAI-compatible API on
     **`:8642`** (`/health` is open; `/v1/*` needs the api_server key).
   - Dashboard: launchd label `ai.hermes.dashboard`, **loopback** `:9119`
