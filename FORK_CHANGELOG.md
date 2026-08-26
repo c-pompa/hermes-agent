@@ -15,7 +15,29 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-08-22 — vendored upstream `7a54ab22e6`
+**Last sync:** 2026-08-25 — vendored upstream `34041faea8`
+(585 commits since `7a54ab22e6`). Two 3-way conflicts, same files as recent
+cycles, both resolved upstream-first: `hermes_cli/web_server.py` (kept
+upstream's trusted-public-hosts `should_require_dashboard_auth()` gate;
+fork's shell-hook registration hunk ported ahead of it),
+`tests/run_agent/test_message_sequence_repair.py` (kept upstream's
+sibling/composite-id dedup tests; fork's ensure_user_leads + Pass-3 tests
+appended). Targeted tests green in the vendor worktree: **377 passed**.
+Published as `c896b5854` and deployed same day (mini + this Mac + desktop
+rebuild). Two deploy-path bugs found and fixed in the fork-upgrader plugin
+(lives outside the repo): the drain probe's recursive `~/.hermes/**` glob
+hung on the mini's 7.2G tree past the 60s ssh timeout — now targeted
+root + `profiles/*` globs; and a racing desktop session's
+`uv venv --clear` on the mini deadlocked the deploy's pip install — venv
+rebuilt serially, services restarted, health green.
+**Fleet-script fix bundled:** `fork-verify-fleet.sh` defaults moved off
+stale names — `MINI_SSH`/`MINI_HTTP` now Tailscale-canonical
+`100.73.11.35` (was the pre-rename MagicDNS name
+`christians-mini.tailf1af7f.ts.net`), `GATEWAY_HTTP` now
+`http://100.73.11.35:8642` (was `hermes-serv.cpompa.com`, whose DNS still
+answers the retired LAN IP `10.88.1.208`). Fleet verify 0 failures after.
+
+**Previous sync:** 2026-08-22 — vendored upstream `7a54ab22e6`
 (234 commits since `a86569bd1`; v0.20.4 → v0.20.5; also backfills the
 missing entry for `47c2d42c4`, the 2026-08-21 vendor of `a86569bd1`).
 Patch verdicts: **zero dropped, zero absorbed** this cycle. Three 3-way

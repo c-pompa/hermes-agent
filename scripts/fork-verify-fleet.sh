@@ -13,11 +13,15 @@
 
 set -uo pipefail
 
-MINI_SSH="${MINI_SSH:-christianpompa@10.88.5.52}"
-# metricsdash binds the mini LAN IP (10.88.5.52) since 2026-08-17;
-# the tailnet name also works via `tailscale serve`. Either base is fine.
-MINI_HTTP="${MINI_HTTP:-http://christians-mini.tailf1af7f.ts.net}"
-GATEWAY_HTTP="${GATEWAY_HTTP:-http://hermes-serv.cpompa.com:8642}"
+MINI_SSH="${MINI_SSH:-christianpompa@100.73.11.35}"
+# metricsdash binds the mini's Tailscale IP (100.73.11.35) since 2026-08-17.
+# Tailscale is canonical (runbook); the MagicDNS name
+# christians-mac-mini.tailf1af7f.ts.net resolves too. Override via env if
+# either changes.
+MINI_HTTP="${MINI_HTTP:-http://100.73.11.35}"
+# hermes-serv.cpompa.com still resolves to the retired LAN IP 10.88.1.208 —
+# gateway health goes straight to the mini over Tailscale instead.
+GATEWAY_HTTP="${GATEWAY_HTTP:-http://100.73.11.35:8642}"
 FAILS=0
 
 pass() { echo "PASS  $1"; }
