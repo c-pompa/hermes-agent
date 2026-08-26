@@ -38,11 +38,13 @@ stages:
   - ui-tui/**/*
   - package.json
   - package-lock.json
+  - .gitlab-ci.yml   # CI-definition changes re-validate the lanes they define
 
 .py-changes: &py-changes
   - "**/*.py"
   - pyproject.toml
   - uv.lock
+  - .gitlab-ci.yml   # CI-definition changes re-validate the lanes they define
 
 # npm workspaces are hoisted from the root; cache the installed trees keyed
 # on the lockfile and skip `npm ci` on a hit (npm ci wipes node_modules, so
@@ -80,24 +82,28 @@ stages:
 # ── Original job (unchanged) ────────────────────────────────────────────────
 validate-comfyui-skill:
   stage: validate
+  # Portable across runner types: jq/python3 are host-installed on the macOS
+  # shell runner (homebrew); apk only exists in the alpine docker image.
   before_script:
-    - apk add --no-cache jq
+    - command -v jq >/dev/null 2>&1 || apk add --no-cache jq
   script:
     - echo "--- workflow JSON syntax ---"
     - for f in skills/mlops/models/comfyui/workflows/*.json; do echo "  $f"; jq empty "$f"; done
     - for f in skills/creative/comfyui/workflows/*.json; do echo "  $f"; jq empty "$f"; done
     - echo "--- python script compile ---"
-    - python -m py_compile skills/mlops/models/comfyui/scripts/queue_workflow.py
-    - python -m py_compile skills/creative/comfyui/scripts/*.py
+    - python3 -m py_compile skills/mlops/models/comfyui/scripts/queue_workflow.py
+    - python3 -m py_compile skills/creative/comfyui/scripts/*.py
     - echo "--- shell script syntax ---"
     - sh -n skills/mlops/models/comfyui/scripts/upload_model.sh
     - echo "all checks passed"
   rules:
-    # Run on every push to a branch (including MR source branches) AND on MR events.
-    # Skips scheduled / pipeline-trigger events to avoid double-runs.
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_PIPELINE_SOURCE == "web"
+    # Relevant-paths gated like every other job: only comfyui skill content
+    # (plus the fail-open web / default-branch anchors above it).
+    - *rule-web
+    - *rule-default-branch
+    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - skills/**/comfyui/**/*
 
 # ── P1: JS/TS checks (mirrors upstream js-tests.yml) ───────────────────────
 js:lint-desktop:
