@@ -569,8 +569,11 @@ Remote naming (unified 2026-07-23, both Mac and mini):
   `fork-sync.sh`/`fork-verify-fleet.sh`; never merges upstream. Fail-closed:
   publish/deploy need `allowed_actions` in `plugins.entries.fork-upgrader`
   plus confirm=true. Enabled in `plugins.enabled` on MBP + mini; synced to
-  the mini via rsync (plugin dir is not in the repo — sync it manually when
-  it changes).
+  the mini via rsync (plugin dir is not in the repo) — **automated since
+  2026-08-25: every `deploy` rsyncs both halves to `gateway_host` before the
+  remote service restarts** (`plugin_sync` in the job result; failure is
+  reported, never masks a deploy). Manual rsync only needed if the plugin
+  changes and no deploy runs.
 
 ### Agent code — ours, but bundled with a vendored sync ⚠
 - `agent/image_routing.py` — sniff magic bytes for image MIME, ignore a
