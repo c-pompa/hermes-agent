@@ -5970,6 +5970,20 @@ def _inject_profile_env_vars() -> None:
         pass
 
 
+# Load ~/.hermes/.env (no override) before the import-time provider discovery
+# below — it triggers a full load_config() expansion via the enabled-plugins
+# lookup, and entrypoints only call load_hermes_dotenv() AFTER importing this
+# module. Without this, every CLI start warns "X is not set" for ${env:...}
+# refs and keeps literal placeholders until the next re-expansion.
+# override=False so deliberate process-env values still win here; the later
+# load_hermes_dotenv() applies the full user-.env-over-stale-shell semantics.
+try:
+    from dotenv import load_dotenv as _early_load_dotenv
+
+    _early_load_dotenv(get_hermes_home() / ".env", override=False)
+except Exception:
+    pass
+
 # Eagerly inject so that OPTIONAL_ENV_VARS is fully populated at import time.
 _inject_profile_env_vars()
 
