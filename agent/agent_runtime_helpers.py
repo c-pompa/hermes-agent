@@ -828,12 +828,14 @@ def repair_message_sequence(agent, messages: List[Dict]) -> int:
     # leading ``tool``, so the first non-system turn here is user or assistant).
     # Unlike the send-time copy, this writes through to persisted history, so a
     # legacy malformed lineage is normalized once and stops replaying the broken
-    # shape. No-op on payloads that already lead with a user turn.
+    # shape. No-op on payloads that already lead with a user turn. Persisted
+    # transcripts (hermes_state._rows_to_conversation) open with a
+    # ``session_meta`` marker row that never reaches the API, so skip it too.
     lead = 0
     while (
         lead < len(merged)
         and isinstance(merged[lead], dict)
-        and merged[lead].get("role") == "system"
+        and merged[lead].get("role") in ("system", "session_meta")
     ):
         lead += 1
     if (

@@ -1058,6 +1058,19 @@ def test_pass3_bridges_leading_assistant_summary_in_history():
     assert messages[3]["tool_call_id"] == "t1"          # pairing preserved
 
 
+def test_pass3_noop_on_persisted_history_with_session_meta_marker():
+    """Persisted transcripts open with a session_meta marker row (not an API
+    role); it must not count as a non-user lead."""
+    agent = _bare_agent()
+    messages = [
+        {"role": "session_meta", "tools": []},
+        {"role": "user", "content": "first question"},
+        {"role": "assistant", "content": "first answer"},
+    ]
+    assert AIAgent._repair_message_sequence(agent, messages) == 0
+    assert [m["role"] for m in messages] == ["session_meta", "user", "assistant"]
+
+
 def test_pass3_noop_on_well_formed_history():
     agent = _bare_agent()
     messages = [

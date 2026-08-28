@@ -68,9 +68,14 @@ stages:
 
 # uv's own cache (~/.cache/uv) persists on this shell runner, so `uv sync`
 # is cheap; the .venv cache just avoids re-linking on lockfile-identical runs.
+#
+# The extras beyond all/dev are the lazy-install features (tools/lazy_deps.py)
+# that tests exercise for real. tests/conftest.py sets
+# HERMES_DISABLE_LAZY_INSTALLS=1, so those SDKs must be in the venv up front
+# (mirrors upstream .github/workflows/tests.yml).
 .uv-sync: &uv-sync
   - uv --version
-  - uv sync --locked --python 3.11 --extra all --extra dev
+  - uv sync --locked --python 3.11 --extra all --extra dev --extra anthropic --extra mistral --extra fal --extra modal --extra daytona --extra hindsight --extra parallel-web
 
 .venv-cache: &venv-cache
   key:
@@ -188,8 +193,20 @@ python:smoke-tests:
   before_script: *uv-sync
   # Fast slice of the python suite covering the fork's most-touched areas.
   # (pyproject addopts already excludes `integration` tests.)
+  # scripts/run_tests.sh runs each file in its own pytest subprocess, like
+  # upstream CI; several tests (e.g. A2A agent-card skills) read process-global
+  # registries and fail when run in one process after other files.
+  # Deselected: Linux-only behaviour upstream never runs on macOS (its macOS
+  # lane is `-m macos_only`). Abstract AF_UNIX sockets do not exist on macOS,
+  # AF_UNIX paths under macOS $TMPDIR exceed the 104-byte limit, and
+  # shutdown_forensics shells out to GNU `timeout`.
   script:
-    - uv run python -m pytest tests/plugins tests/gateway -x -q
+    - >-
+      scripts/run_tests.sh tests/plugins tests/gateway -j 4
+      --deselect=tests/gateway/test_systemd_notify.py::test_notify_supports_systemd_abstract_socket
+      --deselect=tests/gateway/test_scale_to_zero.py::test_suspend_self_posts_suspend_for_this_machine
+      --deselect=tests/gateway/test_scale_to_zero.py::test_suspend_self_non_2xx_is_false_not_raise
+      --deselect=tests/gateway/test_shutdown_forensics.py::TestSpawnAsyncDiagnostic::test_spawns_subprocess_and_writes_output
   rules:
     - *rule-web
     - *rule-default-branch
