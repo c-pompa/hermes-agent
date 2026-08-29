@@ -179,14 +179,26 @@ function FloatingPane({ pane }: { pane: Contribution }) {
         style={{ touchAction: 'none' }}
       >
         <span className="truncate font-medium">{pane.title ?? pane.id}</span>
-        <button
-          className="rounded p-0.5 text-(--ui-text-quaternary) transition-colors hover:text-(--ui-text-primary)"
-          data-floating-no-drag=""
-          onClick={toggleCollapsed}
-          type="button"
-        >
-          <Codicon name={collapsed ? 'chevron-up' : 'chevron-down'} size="0.75rem" />
-        </button>
+        <span className="flex items-center gap-0.5">
+          <button
+            className="rounded p-0.5 text-(--ui-text-quaternary) transition-colors hover:text-(--ui-text-primary)"
+            data-floating-no-drag=""
+            onClick={toggleCollapsed}
+            type="button"
+          >
+            <Codicon name={collapsed ? 'chevron-up' : 'chevron-down'} size="0.75rem" />
+          </button>
+          {typeof pane.data === 'object' && pane.data && typeof (pane.data as Record<string, unknown>).onClose === 'function' ? (
+            <button
+              className="rounded p-0.5 text-lg leading-none text-(--ui-text-quaternary) transition-colors hover:text-(--ui-text-primary)"
+              data-floating-no-drag=""
+              onClick={() => (pane.data as { onClose: () => void }).onClose()}
+              type="button"
+            >
+              ×
+            </button>
+          ) : null}
+        </span>
       </header>
 
       {!collapsed && (
