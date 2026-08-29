@@ -187,4 +187,19 @@ describe('FloatingPanes (live DOM)', () => {
 
     expect(document.querySelectorAll('[data-floating-pane]').length).toBe(2)
   })
+
+  it('recenters a viewport-relative center-anchored pane on resize', () => {
+    registerHud({ anchor: 'center', height: '50vh', placement: 'floating', width: '50vw' })
+    mount.render(<FloatingPanes />)
+
+    // 1440x900 viewport, 34px titlebar: centered at 360x242.
+    expect(card()!.style.left).toBe('360px')
+    expect(card()!.style.top).toBe('242px')
+
+    resizeWindow(1000, 700)
+
+    // 1000x700 viewport: centered at 250x192.
+    expect(card()!.style.left).toBe('250px')
+    expect(card()!.style.top).toBe('192px')
+  })
 })

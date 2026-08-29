@@ -105,8 +105,9 @@ function isContributedPath(pathname: string): boolean {
 
 // ── Contributed sidebar nav — the `sidebar.nav` registry area ────────────────
 // A DATA contribution adds a row to the sidebar's top nav (below Artifacts).
-// Pair with a ROUTES_AREA page: the row navigates to `path` and lights up
-// while the app is there.
+// Most rows pair with a ROUTES_AREA page (navigate to `path` and light up
+// while the app is there). Rows may instead provide an `onClick` handler for
+// actions like opening a plugin dialog or floating setup pane.
 
 export const SIDEBAR_NAV_AREA = 'sidebar.nav'
 
@@ -116,7 +117,9 @@ export interface SidebarNavContribution {
   codicon: string
   label: string
   /** Route to navigate to (usually a contributed page's path). */
-  path: string
+  path?: string
+  /** Optional click handler for non-route actions (e.g. opening a dialog). */
+  onClick?: () => void
 }
 
 // Views that render as a full-screen modal card (OverlayView) over the shell.

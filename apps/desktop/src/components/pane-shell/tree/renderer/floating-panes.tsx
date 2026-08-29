@@ -57,19 +57,24 @@ function FloatingPane({ pane }: { pane: Contribution }) {
 
   const viewport = useRef<FloatingViewport>(viewportNow())
 
-  const size = {
-    width: floatingPx(chrome.width, DEFAULT_SIZE.width, viewport.current),
-    height: floatingPx(chrome.height, DEFAULT_SIZE.height, viewport.current)
-  }
+  const resolveSize = useCallback(
+    (v: FloatingViewport) => ({
+      width: floatingPx(chrome.width, DEFAULT_SIZE.width, v),
+      height: floatingPx(chrome.height, DEFAULT_SIZE.height, v)
+    }),
+    [chrome.height, chrome.width]
+  )
+
+  const sizeRef = useRef(resolveSize(viewport.current))
 
   // Preserve authored CSS expressions (vw/vh/calc/min) in the DOM so the card
-  // can be responsive; the numeric `size` above is only for geometry/clamping.
-  const styleWidth = typeof chrome.width === 'string' ? chrome.width : size.width
-  const styleHeight = typeof chrome.height === 'string' ? chrome.height : size.height
+  // can be responsive; the numeric `sizeRef` is for geometry/clamping.
+  const styleWidth = typeof chrome.width === 'string' ? chrome.width : sizeRef.current.width
+  const styleHeight = typeof chrome.height === 'string' ? chrome.height : sizeRef.current.height
 
   const [rect, setRect] = useState<FloatingRect>(() => {
     const stored = readStored()[pane.id]
-    const spawned = anchoredRect(anchor, size, viewportNow())
+    const spawned = anchoredRect(anchor, sizeRef.current, viewportNow())
 
     return stored ? { ...spawned, x: stored.x, y: stored.y } : spawned
   })
@@ -85,15 +90,17 @@ function FloatingPane({ pane }: { pane: Contribution }) {
     [pane.id]
   )
 
-  // Track the viewport so an edge-anchored pane rides its edge on resize.
+  // Track the viewport so an edge-anchored pane rides its edge on resize and
+  // viewport-relative sizes (vw/vh) update the geometry ref used for clamping.
   // The previous-size read lives in the handler (not a useEffect body): it's
   // window geometry, not a mirrored reactive value.
   const handleResize = useCallback(() => {
     const next = viewportNow()
 
-    setRect(current => reflowRect(current, anchor, viewport.current, next))
+    sizeRef.current = resolveSize(next)
+    setRect(current => reflowRect({ ...current, ...sizeRef.current }, anchor, viewport.current, next))
     viewport.current = next
-  }, [anchor])
+  }, [anchor, resolveSize])
 
   useEffect(() => {
     window.addEventListener('resize', handleResize)

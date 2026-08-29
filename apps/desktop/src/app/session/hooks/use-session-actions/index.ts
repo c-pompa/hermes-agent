@@ -571,6 +571,12 @@ export function useSessionActions({
         return
       }
 
+      if (item.onClick) {
+        item.onClick()
+
+        return
+      }
+
       if (item.route) {
         navigateToWorkspacePage(navigate, item.route)
       }

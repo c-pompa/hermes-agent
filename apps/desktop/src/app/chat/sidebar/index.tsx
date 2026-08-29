@@ -333,7 +333,7 @@ export function ChatSidebar({
       navContributions.flatMap(c => {
         const data = c.data as Partial<SidebarNavContribution> | undefined
 
-        if (!data?.path?.startsWith('/') || !data.label) {
+        if (!data?.label || (!data.path?.startsWith('/') && !data.onClick)) {
           return []
         }
 
@@ -344,7 +344,8 @@ export function ChatSidebar({
             id: c.id,
             label: data.label,
             icon: (props: { className?: string }) => <Codicon name={codicon} {...props} />,
-            route: data.path
+            route: data.path,
+            onClick: data.onClick
           }
         ]
       }),
@@ -1471,7 +1472,7 @@ export function ChatSidebar({
           <SidebarGroupContent>
             <SidebarMenu className="gap-px">
               {[...SIDEBAR_NAV, ...contributedNav].map(item => {
-                const isInteractive = Boolean(item.action) || Boolean(item.route)
+                const isInteractive = Boolean(item.action) || Boolean(item.route) || Boolean(item.onClick)
 
                 const active =
                   (item.id === 'skills' && currentView === 'skills') ||
@@ -1509,7 +1510,11 @@ export function ChatSidebar({
                         $newChatProfile.set(null)
                       }
 
-                      onNavigate(item)
+                      if (item.onClick) {
+                        item.onClick()
+                      } else {
+                        onNavigate(item)
+                      }
                     }}
                     tooltip={
                       item.keybindActionId

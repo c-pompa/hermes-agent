@@ -167,6 +167,9 @@ export interface SidebarNavItem {
   icon: React.ComponentType<{ className?: string }>
   route?: string
   action?: 'new-session'
+  /** Optional click handler for contributed rows that open a dialog/pane
+   *  instead of navigating to a route. */
+  onClick?: () => void
   /** Keybind action id — when set, the tooltip shows the keybind hint. */
   keybindActionId?: string
 }
