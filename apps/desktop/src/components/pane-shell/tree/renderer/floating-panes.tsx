@@ -55,10 +55,17 @@ function FloatingPane({ pane }: { pane: Contribution }) {
   const chrome = paneChrome(pane)
   const anchor = chrome.anchor ?? 'top-right'
 
+  const viewport = useRef<FloatingViewport>(viewportNow())
+
   const size = {
-    width: floatingPx(chrome.width, DEFAULT_SIZE.width),
-    height: floatingPx(chrome.height, DEFAULT_SIZE.height)
+    width: floatingPx(chrome.width, DEFAULT_SIZE.width, viewport.current),
+    height: floatingPx(chrome.height, DEFAULT_SIZE.height, viewport.current)
   }
+
+  // Preserve authored CSS expressions (vw/vh/calc/min) in the DOM so the card
+  // can be responsive; the numeric `size` above is only for geometry/clamping.
+  const styleWidth = typeof chrome.width === 'string' ? chrome.width : size.width
+  const styleHeight = typeof chrome.height === 'string' ? chrome.height : size.height
 
   const [rect, setRect] = useState<FloatingRect>(() => {
     const stored = readStored()[pane.id]
@@ -70,7 +77,6 @@ function FloatingPane({ pane }: { pane: Contribution }) {
   const [collapsed, setCollapsed] = useState(() => readStored()[pane.id]?.collapsed ?? false)
 
   const drag = useRef<{ x: number; y: number } | null>(null)
-  const viewport = useRef<FloatingViewport>(viewportNow())
 
   const persist = useCallback(
     (next: FloatingRect, nextCollapsed: boolean) => {
@@ -153,8 +159,8 @@ function FloatingPane({ pane }: { pane: Contribution }) {
       style={{
         left: rect.x,
         top: rect.y,
-        width: size.width,
-        height: collapsed ? undefined : size.height
+        width: styleWidth,
+        height: collapsed ? undefined : styleHeight
       }}
     >
       {/* Header IS the drag handle — the floating equivalent of a tab strip. */}
