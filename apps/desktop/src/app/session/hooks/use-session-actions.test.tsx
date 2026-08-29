@@ -3262,4 +3262,26 @@ describe('selectSidebarItem', () => {
     expect(noteActiveTreeGroup).toHaveBeenCalledWith(null)
     expect(revealTreePane).toHaveBeenCalledWith('workspace')
   })
+
+  it('calls a contributed row\'s onClick instead of navigating', async () => {
+    const navigate = vi.fn()
+    const requestGateway = vi.fn(async () => ({}) as never)
+    const onClick = vi.fn()
+    let handle: HarnessHandle | null = null
+
+    render(<Harness navigate={navigate} onReady={value => (handle = value)} requestGateway={requestGateway} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    act(() => {
+      handle!.selectSidebarItem({
+        icon: (() => null) as never,
+        id: 'plugin:setup',
+        label: 'Model Router Setup',
+        onClick
+      })
+    })
+
+    expect(onClick).toHaveBeenCalledTimes(1)
+    expect(navigate).not.toHaveBeenCalled()
+  })
 })
