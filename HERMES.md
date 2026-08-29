@@ -40,6 +40,42 @@ Workarounds, in order of preference:
 3. Permanent fix: store a GitLab PAT in `~/.git-credentials` with
    `git config credential.helper store` so headless pushes work.
 
+## Contributing changes upstream (GitHub PRs) — cut from upstream/main
+
+This fork carries fork-only files that must NEVER reach a GitHub remote:
+`.gitlab-ci.yml` (homelab runner tags), `FORK_CHANGELOG.md`,
+`FORK_UPDATE_RUNBOOK.md`, `HERMES.md`, `scripts/fork-*`.
+
+Flow: `git fetch upstream` → `git checkout -b fix/xyz upstream/main` →
+apply/cherry-pick ONLY the change → push to a `github*` remote → open the
+PR from that branch. Never open an upstream PR from a branch based on our
+`main` — the PR diff would include the fork delta.
+
+Branch discipline (enforced by the hook below, on ALL remotes):
+
+- **Naming cadence** on GitHub-bound working branches: `<type>/<slug>`,
+  type in `feat|fix|docs|chore|refactor|test|perf|ci`
+  (e.g. `fix/drain-probe-glob`).
+- **No force pushes, even to our own remotes/forks** — every ref update
+  must be a fast-forward. Rebase locally and push a new branch instead of
+  rewriting a pushed one. Use `git worktree` for parallel work rather than
+  repurposing this checkout.
+- Mirror pushes of `main` to our own GitHub fork stay allowed, FF-only.
+
+A pre-push hook (`.git/hooks/pre-push`, local per checkout — installed on
+both Mac and mini) enforces all of the above. Do not bypass it with
+`--no-verify`; if it fires, fix the branch, not the hook.
+
+## fork-upgrader plugin — repo is the source of truth
+
+The plugin (`~/.hermes/plugins/fork-upgrader/` +
+`~/.hermes/desktop-plugins/fork-upgrader/`) is versioned at
+gitlab.cpompa.com/hermes-plugins/fork-upgrader, cloned at
+`~/Documents/gitlab-repos/fork-upgrader` on the Mac. Edit the clone, never
+the live dirs; `./sync-live.sh` installs repo → live (refuses on drift,
+`--check` guards). The mini's copy advances automatically on the next
+plugin `deploy` (`plugin_sync` in the job result).
+
 ## When working in a git worktree (`hermes -w` mode)
 
 Before finishing each task or ending the session, commit any
