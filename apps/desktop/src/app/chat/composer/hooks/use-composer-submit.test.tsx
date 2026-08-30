@@ -13,6 +13,7 @@ import {
   setSecretRequest,
   setSudoRequest
 } from '@/store/prompts'
+import { onScrollToBottomRequest } from '@/store/thread-scroll'
 
 import { type ComposerTarget, requestComposerSubmit } from '../focus'
 import { ComposerScopeProvider, ComposerSurfaceProvider, MAIN_COMPOSER_SCOPE } from '../scope'
@@ -261,6 +262,47 @@ describe('useComposerSubmit external request routing', () => {
     requestComposerSubmit('do not send this', { target: 'main' })
 
     expect(disabled.onSubmit).not.toHaveBeenCalled()
+  })
+})
+
+describe('useComposerSubmit scroll snap on send', () => {
+  // The thread's runStart pin only follows when the reader is at the bottom,
+  // so a local send must own its snap explicitly through the scroll bridge.
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+  })
+
+  it('requests a scroll to bottom when the gateway accepts the submit', async () => {
+    const scrollToBottom = vi.fn()
+    const unsubscribe = onScrollToBottomRequest(scrollToBottom)
+    const { hook, onSubmit } = renderSubmitHook({ text: 'hello' })
+
+    act(() => {
+      hook.result.current.dispatchSubmit('hello')
+    })
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('hello', { composerScope: 'stored-session' }))
+    await waitFor(() => expect(scrollToBottom).toHaveBeenCalledOnce())
+    unsubscribe()
+  })
+
+  it('does not request a scroll when the gateway rejects the submit', async () => {
+    const scrollToBottom = vi.fn()
+    const unsubscribe = onScrollToBottomRequest(scrollToBottom)
+    const { hook, onSubmit } = renderSubmitHook({ text: 'hello' })
+    onSubmit.mockResolvedValue(false)
+
+    act(() => {
+      hook.result.current.dispatchSubmit('hello')
+    })
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    // Flush the accept/reject continuation before asserting the negative.
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(scrollToBottom).not.toHaveBeenCalled()
+    unsubscribe()
   })
 })
 

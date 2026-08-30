@@ -9,6 +9,7 @@ import { resetBrowseState } from '@/store/composer-input-history'
 import { enqueueQueuedPrompt, type QueuedPromptEntry } from '@/store/composer-queue'
 import { hasMcpSetupRequest, skipMcpSetupRequest } from '@/store/mcp-setup'
 import { hasBlockingPromptRequest } from '@/store/prompts'
+import { requestScrollToBottom } from '@/store/thread-scroll'
 
 import { cloneAttachments, type QueueEditState } from '../composer-utils'
 import { onComposerSubmitRequest } from '../focus'
@@ -101,7 +102,18 @@ export function useComposerSubmit({
         ? onSubmit(text, { attachments, composerScope: submittedScope, ...(displayKind ? { displayKind } : {}) })
         : onSubmit(text, { composerScope: submittedScope, ...(displayKind ? { displayKind } : {}) })
     )
-      .then(accepted => void (accepted === false ? restore() : clearSessionDraft(submittedScope)))
+      .then(accepted => {
+        if (accepted === false) {
+          restore()
+
+          return
+        }
+
+        clearSessionDraft(submittedScope)
+        // Local sends own the snap to the bottom: the thread's runStart pin
+        // now respects a scrolled-up reader, so it no longer covers this case.
+        requestScrollToBottom()
+      })
       .catch(restore)
   }
 
