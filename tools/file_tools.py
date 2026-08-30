@@ -1195,27 +1195,6 @@ _READ_DEDUP_STATUS_MESSAGE = (
 )
 
 
-def _read_dedup_guidance(offset: int, limit: int) -> str:
-    """Actionable next-region guidance for dedup stub/block messages.
-
-    The dedup tracker keys on the exact (path, offset, limit) region and
-    read_file pagination is line-based (offset is 1-based), so the region
-    the model already has is lines ``offset`` through
-    ``offset + limit - 1`` and the next unread region starts at
-    ``offset + limit``.  A bare "STOP re-reading" tells a weak model what
-    not to do but not what to do instead — when it wanted a different
-    part of the file it just re-sends the same offset.  Tell it where to
-    go next.
-    """
-    next_offset = offset + limit
-    return (
-        f"That read covered lines {offset}-{offset + limit - 1}. "
-        f"If you need more of this file, call read_file with "
-        f"offset={next_offset} to read the next region. If you expected "
-        "the file to have changed, it has not — proceed with what you have."
-    )
-
-
 def _cap_read_tracker_data(task_data: dict) -> None:
     """Enforce size caps on the per-task read-tracker sub-containers.
 
@@ -1844,28 +1823,22 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 2000, task_id: str =
                     if hits >= 2:
                         return tool_error(
                             f"BLOCKED: You have called read_file on this "
-                            f"exact region (lines {offset}-"
-                            f"{offset + limit - 1}) {hits + 1} times and "
-                            "the file has NOT changed. STOP calling "
-                            "read_file for this path and region — the "
-                            "content from your earlier read_file result in "
-                            "this conversation is still current. "
-                            + _read_dedup_guidance(offset, limit),
+                            f"exact region {hits + 1} times and the file "
+                            "has NOT changed. STOP calling read_file for "
+                            "this path — the content from your earlier "
+                            "read_file result in this conversation is "
+                            "still current. Proceed with your task using "
+                            "the information you already have.",
                             path=path,
                             already_read=hits + 1,
-                            next_offset=offset + limit,
                         )
 
                     return json.dumps({
                         "status": "unchanged",
-                        "message": (
-                            _READ_DEDUP_STATUS_MESSAGE + " "
-                            + _read_dedup_guidance(offset, limit)
-                        ),
+                        "message": _READ_DEDUP_STATUS_MESSAGE,
                         "path": path,
                         "dedup": True,
                         "content_returned": False,
-                        "next_offset": offset + limit,
                     }, ensure_ascii=False)
             except OSError:
                 pass  # stat failed — fall through to full read

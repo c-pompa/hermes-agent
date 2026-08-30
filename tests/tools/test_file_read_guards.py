@@ -419,28 +419,6 @@ class TestFileDedup(unittest.TestCase):
         self.assertIn("unchanged", r2.get("message", ""))
         self.assertFalse(r2.get("content_returned"))
         self.assertNotIn("content", r2)
-        # Actionable guidance: the stub must name the region already read
-        # and the offset of the next unread region (default read covers
-        # lines 1-500, so the next region starts at offset=501).
-        self.assertEqual(r2.get("next_offset"), 501)
-        self.assertIn("lines 1-500", r2.get("message", ""))
-        self.assertIn("offset=501", r2.get("message", ""))
-        self.assertIn("has not", r2.get("message", ""))
-
-    @patch("tools.file_tools._get_file_ops")
-    def test_dedup_stub_reports_next_region(self, mock_ops):
-        """Stub guidance is computed from the tracked (offset, limit) region."""
-        mock_ops.return_value = _make_fake_ops(
-            content="line one\nline two\n", file_size=20,
-        )
-        read_file_tool(self._tmpfile, offset=1, limit=2, task_id="dup")
-        r2 = json.loads(
-            read_file_tool(self._tmpfile, offset=1, limit=2, task_id="dup")
-        )
-        self.assertTrue(r2.get("dedup"))
-        self.assertEqual(r2.get("next_offset"), 3)
-        self.assertIn("lines 1-2", r2.get("message", ""))
-        self.assertIn("offset=3", r2.get("message", ""))
 
     @patch("tools.file_tools._get_file_ops")
     def test_write_rejects_internal_read_status_text(self, mock_ops):
@@ -518,12 +496,6 @@ class TestDedupStubLoopGuard(unittest.TestCase):
         self.assertIn("BLOCKED", r3["error"])
         self.assertIn("STOP", r3["error"])
         self.assertEqual(r3.get("already_read"), 3)
-        # The block must also be actionable: name the region already read
-        # and the offset that reads the next one.
-        self.assertEqual(r3.get("next_offset"), 501)
-        self.assertIn("lines 1-500", r3["error"])
-        self.assertIn("offset=501", r3["error"])
-        self.assertIn("has not", r3["error"])
         # The loop-breaker must NOT be a dedup stub, or the model sees the
         # same passive message it has been ignoring.
         self.assertNotIn("dedup", r3)
