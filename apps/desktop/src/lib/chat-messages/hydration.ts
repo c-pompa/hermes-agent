@@ -8,12 +8,35 @@ import { assistantTextPart, chatMessageText, dedupeRepeatedTextInParts, reasonin
 import {
   applyStoredToolResult,
   applyStoredToolResultToParts,
+  durableMessageRowId,
   storedToolMessagePart,
   textFromUnknown,
   toolPartFromStoredCall,
   withUniqueToolCallIds
 } from './tool-parts'
 import type { ChatMessage, ChatMessagePart } from './types'
+
+/**
+ * Hydrated message identity, as an ordered ladder:
+ *
+ * 1. The backend's durable `messages.id` (REST transcript ships it as numeric
+ *    `id`, gateway resume as `row_id`). It survives every tail-page shift, so
+ *    one appended row no longer re-ids EVERY hydrated row — the thread's
+ *    structural signature, the row keys, the sticky transcript-window anchor,
+ *    and content-visibility's remembered sizes all hold across a background
+ *    refresh instead of remounting the transcript under the reader.
+ * 2. Legacy fallback for a backend older than this app that ships neither
+ *    field: timestamp + page index. Unstable across page shifts by
+ *    construction — kept as the narrow last rung, not the design.
+ */
+function hydratedMessageId(
+  rowId: number | undefined,
+  timestamp: number | undefined,
+  index: number,
+  suffix: string
+): string {
+  return rowId !== undefined ? `row-${rowId}` : `${timestamp || Date.now()}-${index}-${suffix}`
+}
 
 const ATTACHED_CONTEXT_MARKER_RE = /(?:^|\n)--- Attached Context ---\s*\n/
 const CONTEXT_WARNINGS_MARKER_RE = /(?:^|\n)--- Context Warnings ---[\s\S]*$/
@@ -119,11 +142,15 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
   const result: ChatMessage[] = []
   let pendingToolParts: ChatMessagePart[] = []
   let pendingToolTimestamp: number | undefined
+  // Durable row id of the first row folded into the pending tool group — the
+  // group's stable identity when it flushes as its own message.
+  let pendingToolRowId: number | undefined
   let activeAssistantIndex: null | number = null
 
   const clearPendingTools = () => {
     pendingToolParts = []
     pendingToolTimestamp = undefined
+    pendingToolRowId = undefined
   }
 
   const earliestTimestamp = (...values: (number | undefined)[]) => {
@@ -158,7 +185,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
 
     if (!appendPartsToActiveAssistant(pendingToolParts, pendingToolTimestamp)) {
       result.push({
-        id: `${pendingToolTimestamp || Date.now()}-${index}-tools`,
+        id: hydratedMessageId(pendingToolRowId, pendingToolTimestamp, index, 'tools'),
         role: 'assistant',
         parts: pendingToolParts,
         timestamp: pendingToolTimestamp
@@ -185,6 +212,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
 
       pendingToolParts = [...pendingToolParts, storedToolMessagePart(message, index)]
       pendingToolTimestamp ??= message.timestamp
+      pendingToolRowId ??= durableMessageRowId(message)
 
       return
     }
@@ -258,6 +286,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
     if (isToolOnlyAssistant) {
       pendingToolParts = [...pendingToolParts, ...parts]
       pendingToolTimestamp ??= message.timestamp
+      pendingToolRowId ??= durableMessageRowId(message)
 
       return
     }
@@ -296,11 +325,12 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
     const reactions = messageReactions(message.display_metadata)
     // Gateway resume names the durable row id `row_id`; the REST transcript
     // prefetch ships the same messages.id as a numeric `id`. Either one lets
-    // reactions address this exact row later.
-    const rowId = message.row_id ?? (typeof message.id === 'number' ? message.id : undefined)
+    // reactions address this exact row later — and keys the message id itself
+    // (see hydratedMessageId).
+    const rowId = durableMessageRowId(message)
 
     result.push({
-      id: `${message.timestamp || Date.now()}-${index}-${displayRole}`,
+      id: hydratedMessageId(rowId, message.timestamp, index, displayRole),
       role: displayRole,
       parts,
       timestamp: earliestTimestamp(message.timestamp, ...parts.map(part => part.timestamp)),
