@@ -22,6 +22,7 @@ import { useI18n } from '@/i18n'
 import { messagePaintWeight } from '@/lib/render-weight'
 import { cn } from '@/lib/utils'
 import {
+  $threadScrolledUp,
   onScrollToBottomRequest,
   onThreadEditClose,
   onThreadEditOpen,
@@ -164,6 +165,20 @@ export function subscribeToThreadForeground(shouldReanchor: () => boolean, onRea
 
     frameId = null
     framePending = false
+  }
+}
+
+// A run start follows to the latest turn ONLY when the reader is already
+// parked at the bottom. `thread.runStart` fires on any store.isRunning flip —
+// cron jobs, other Hermes clients, a queued drain driving the viewed session —
+// so an unconditional snap yanked a scrolled-up reader to the bottom on every
+// background turn. Local sends own their snap explicitly via
+// requestScrollToBottom() from the composer submit path. `isAtBottom` is a
+// reader (not a value) so the check always sees the latest position, never a
+// stale event-handler closure.
+export function followThreadRunStart(isAtBottom: () => boolean, scrollToBottom: () => void): void {
+  if (isAtBottom()) {
+    scrollToBottom()
   }
 }
 
@@ -606,8 +621,13 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
   useEffect(() => onThreadEditOpen(beginEditHold), [beginEditHold])
   useEffect(() => onThreadEditClose(endEditHold), [endEditHold])
   useEffect(() => () => endEditHold(), [endEditHold])
-  // New run → snap to the latest turn.
-  useAuiEvent('thread.runStart', () => void scrollToBottom())
+  // New run → follow to the latest turn only when the reader is at the bottom.
+  // runStart fires for background runs too (cron, other clients, queued drains
+  // of this session) — those must not hijack a scrolled-up reader's position.
+  // Local sends snap via requestScrollToBottom() from the composer submit path.
+  // Read the shared at-bottom atom synchronously so the guard always sees the
+  // latest position, never a stale event-handler closure.
+  useAuiEvent('thread.runStart', () => followThreadRunStart(() => !$threadScrolledUp.get(), () => void scrollToBottom()))
 
   // Reset the cap and pin to bottom on mount + every session switch (messages
   // swap in place on a long-lived runtime, so sessionKey is the only signal).

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buildGroups,
   firstVisibleGroupIndex,
+  followThreadRunStart,
   HIDDEN_TRANSCRIPT_RENDER_BUDGET,
   LIVE_TAIL_MIN_GROUPS,
   LIVE_TAIL_PARTS,
@@ -15,6 +16,24 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks()
+})
+
+describe('followThreadRunStart', () => {
+  it('snaps to the latest turn when the reader is following the tail', () => {
+    const scrollToBottom = vi.fn()
+
+    followThreadRunStart(() => true, scrollToBottom)
+
+    expect(scrollToBottom).toHaveBeenCalledOnce()
+  })
+
+  it('holds position for a scrolled-up reader so a background run cannot hijack the view', () => {
+    const scrollToBottom = vi.fn()
+
+    followThreadRunStart(() => false, scrollToBottom)
+
+    expect(scrollToBottom).not.toHaveBeenCalled()
+  })
 })
 
 describe('subscribeToThreadForeground', () => {
