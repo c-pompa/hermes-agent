@@ -76,6 +76,16 @@ the live dirs; `./sync-live.sh` installs repo → live (refuses on drift,
 `--check` guards). The mini's copy advances automatically on the next
 plugin `deploy` (`plugin_sync` in the job result).
 
+## Profile-scoped operation (2026-08-29)
+
+This machine runs Hermes in profile-scoped mode: per-profile model pins
+(`local`, `coder`, `homelab` → model-router roles; `default` → agg/agg-auto)
+and all cron jobs explicitly pinned, so global config drift can't reroute or
+drift-skip work. Operational details live in `~/AGENTS.md`; the gateway-side
+piece (`profile_routes` + `multiplex_profiles` on the mini) is documented in
+`docs/profile-routing.md`. When changing profile or cron model pins, update
+`~/AGENTS.md` in the same pass.
+
 ## When working in a git worktree (`hermes -w` mode)
 
 Before finishing each task or ending the session, commit any
