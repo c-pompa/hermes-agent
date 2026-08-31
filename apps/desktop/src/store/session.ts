@@ -236,15 +236,22 @@ export async function syncConfiguredDefaultProjectDir(shouldPublish: () => boole
   const settings = window.hermesDesktop?.settings?.getDefaultProjectDir
 
   if (!settings) {
-    configuredDefaultProjectDir = ''
-    explicitLaunchCwd = ''
+    if (shouldPublish()) {
+      configuredDefaultProjectDir = ''
+      explicitLaunchCwd = ''
+    }
 
     return configuredDefaultProjectDir
   }
 
   const { dir, explicitLaunchCwd: launchCwd } = await settings()
-  configuredDefaultProjectDir = dir?.trim() || ''
-  explicitLaunchCwd = launchCwd?.trim() || ''
+
+  // A delayed settings resolve must not clobber state after ownership was
+  // lost: a newer switch may already have applied its own configured default.
+  if (shouldPublish()) {
+    configuredDefaultProjectDir = dir?.trim() || ''
+    explicitLaunchCwd = launchCwd?.trim() || ''
+  }
 
   return configuredDefaultProjectDir
 }
