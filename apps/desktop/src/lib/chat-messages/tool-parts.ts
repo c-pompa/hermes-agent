@@ -734,15 +734,6 @@ export function applyStoredToolResultToParts(
   return next
 }
 
-/**
- * Durable per-message identity: the backend's `messages.id`. Gateway resume
- * names it `row_id`; the REST transcript path (`SELECT *`) ships the same
- * value as a numeric `id`. Absent on a backend older than this app.
- */
-export function durableMessageRowId(message: SessionMessage): number | undefined {
-  return message.row_id ?? (typeof message.id === 'number' ? message.id : undefined)
-}
-
 export function storedToolMessagePart(toolMessage: SessionMessage, fallbackIndex: number): ChatMessagePart {
   const name = toolMessage.tool_name || toolMessage.name || 'tool'
   const context = textFromUnknown(toolMessage.context || toolMessage.text || toolMessage.content || '')
@@ -753,16 +744,9 @@ export function storedToolMessagePart(toolMessage: SessionMessage, fallbackIndex
   const storedArgs = parseMaybeJsonObject(toolMessage.args)
   const args = { ...storedArgs, ...(context ? { context } : {}) }
 
-  const rowId = durableMessageRowId(toolMessage)
-
   return {
     type: 'tool-call',
-    // No stored tool_call_id: key the part off the durable row id when the
-    // backend ships one — the page index shifts on every appended row, which
-    // made this fallback a second source of refresh-time identity churn.
-    toolCallId:
-      toolMessage.tool_call_id ||
-      (rowId !== undefined ? `stored-tool-row-${rowId}` : `stored-tool-message-${fallbackIndex}`),
+    toolCallId: toolMessage.tool_call_id || `stored-tool-message-${fallbackIndex}`,
     toolName: name,
     args: args as never,
     argsText: Object.keys(args).length ? JSON.stringify(args) : '',

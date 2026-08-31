@@ -589,11 +589,10 @@ export interface SessionMessage {
   display_metadata?: string | TimelineDisplayMetadata
   role: 'assistant' | 'system' | 'tool' | 'user'
   /**
-   * Durable `messages.id` from the backend. Hydration keys the renderer's own
-   * message ids off it when present (`row-<id>`), so a tail-page shift no
-   * longer re-ids every row; only a backend older than this app still gets
-   * the ephemeral timestamp+index fallback. Anything addressing a specific
-   * persisted message — reactions — keys off this.
+   * Durable `messages.id` from the backend. The renderer's own message ids are
+   * ephemeral (derived from timestamp+index, and a different shape for live vs
+   * rehydrated vs optimistic rows), so anything addressing a specific persisted
+   * message — reactions — keys off this. Absent on a backend older than this app.
    *
    * The gateway resume path names it `row_id`; the REST transcript path
    * (`SELECT *`) ships the same value as a numeric `id`. Read both.
