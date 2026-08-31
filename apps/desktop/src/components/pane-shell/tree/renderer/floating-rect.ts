@@ -8,7 +8,7 @@
  */
 
 /** Corner a floating pane spawns from (and re-anchors to on reset). */
-export type FloatingAnchor = 'bottom-left' | 'bottom-right' | 'center' | 'top-left' | 'top-right'
+export type FloatingAnchor = 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right'
 
 export interface FloatingRect {
   x: number
@@ -54,17 +54,12 @@ export function clampFloatingRect(rect: FloatingRect, viewport: FloatingViewport
   }
 }
 
-/** Spawn position for an anchor — the corner, inset by `FLOATING_MARGIN`,
- *  or centered for the `'center'` anchor. */
+/** Spawn position for an anchor — the corner, inset by `FLOATING_MARGIN`. */
 export function anchoredRect(
   anchor: FloatingAnchor,
   size: { width: number; height: number },
   viewport: FloatingViewport
 ): FloatingRect {
-  if (anchor === 'center') {
-    return centeredRect(size, viewport)
-  }
-
   const right = anchor === 'bottom-right' || anchor === 'top-right'
   const bottom = anchor === 'bottom-left' || anchor === 'bottom-right'
 
@@ -75,21 +70,6 @@ export function anchoredRect(
   }
 
   return clampFloatingRect(rect, viewport)
-}
-
-/** Center a rect in the usable viewport, then clamp so it stays grabbable. */
-export function centeredRect(
-  size: { width: number; height: number },
-  viewport: FloatingViewport
-): FloatingRect {
-  return clampFloatingRect(
-    {
-      ...size,
-      x: (viewport.width - size.width) / 2,
-      y: viewport.top + (viewport.height - viewport.top - size.height) / 2
-    },
-    viewport
-  )
 }
 
 /**
@@ -104,10 +84,6 @@ export function reflowRect(
   previous: FloatingViewport,
   next: FloatingViewport
 ): FloatingRect {
-  if (anchor === 'center') {
-    return centeredRect({ width: rect.width, height: rect.height }, next)
-  }
-
   const right = anchor === 'bottom-right' || anchor === 'top-right'
   const bottom = anchor === 'bottom-left' || anchor === 'bottom-right'
 
@@ -121,32 +97,13 @@ export function reflowRect(
   )
 }
 
-/** Parse an authored CSS length (`'216px'`, `216`, `'92vw'`, `'85vh'`)
- *  into px for geometry. Viewport-relative units need the current viewport.
- *  Falls back for unknown expressions (e.g. `calc(...)` / `min(...)`). */
-export function floatingPx(
-  value: number | string | undefined,
-  fallback: number,
-  viewport?: FloatingViewport
-): number {
+/** Parse an authored CSS px length (`'216px'`, `216`) with a fallback. */
+export function floatingPx(value: number | string | undefined, fallback: number): number {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : fallback
   }
 
-  const str = value ?? ''
-  const numeric = Number.parseFloat(str)
+  const parsed = Number.parseFloat(value ?? '')
 
-  if (!Number.isFinite(numeric)) {
-    return fallback
-  }
-
-  if (viewport && str.endsWith('vw')) {
-    return (viewport.width * numeric) / 100
-  }
-
-  if (viewport && str.endsWith('vh')) {
-    return (viewport.height * numeric) / 100
-  }
-
-  return numeric
+  return Number.isFinite(parsed) ? parsed : fallback
 }

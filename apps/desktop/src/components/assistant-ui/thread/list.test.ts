@@ -3,37 +3,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buildGroups,
   firstVisibleGroupIndex,
-  followThreadRunStart,
   HIDDEN_TRANSCRIPT_RENDER_BUDGET,
   LIVE_TAIL_MIN_GROUPS,
   LIVE_TAIL_PARTS,
   liveTailStart,
   type MessageGroup,
   resolveThreadScrollTarget,
+  shouldClampTranscriptBudget,
   subscribeToThreadForeground,
+  transcriptBackfillFrameCount,
   transcriptPaneBudget
 } from './list'
 
 afterEach(() => {
   vi.restoreAllMocks()
-})
-
-describe('followThreadRunStart', () => {
-  it('snaps to the latest turn when the reader is following the tail', () => {
-    const scrollToBottom = vi.fn()
-
-    followThreadRunStart(() => true, scrollToBottom)
-
-    expect(scrollToBottom).toHaveBeenCalledOnce()
-  })
-
-  it('holds position for a scrolled-up reader so a background run cannot hijack the view', () => {
-    const scrollToBottom = vi.fn()
-
-    followThreadRunStart(() => false, scrollToBottom)
-
-    expect(scrollToBottom).not.toHaveBeenCalled()
-  })
 })
 
 describe('subscribeToThreadForeground', () => {
@@ -114,6 +97,18 @@ describe('transcriptPaneBudget', () => {
     expect(transcriptPaneBudget(1, true)).toBe(HIDDEN_TRANSCRIPT_RENDER_BUDGET)
     expect(transcriptPaneBudget(4, true)).toBe(HIDDEN_TRANSCRIPT_RENDER_BUDGET)
     expect(transcriptPaneBudget(1, false)).toBeGreaterThan(HIDDEN_TRANSCRIPT_RENDER_BUDGET)
+  })
+})
+
+describe('shouldClampTranscriptBudget', () => {
+  it('never snaps a visible pane back after Show earlier', () => {
+    expect(shouldClampTranscriptBudget(false, 10, 5)).toBe(false)
+    expect(shouldClampTranscriptBudget(false, 5, 5)).toBe(false)
+  })
+
+  it('snaps only a hot-hidden pane that outgrew the retention budget', () => {
+    expect(shouldClampTranscriptBudget(true, 10, 5)).toBe(true)
+    expect(shouldClampTranscriptBudget(true, 5, 5)).toBe(false)
   })
 })
 
@@ -326,5 +321,11 @@ describe('liveTailStart', () => {
 
       expect(rendered(liveTailStart(groups))).toBeLessThanOrEqual(rendered(oldStart))
     }
+  })
+})
+
+describe('transcriptBackfillFrameCount', () => {
+  it('settles a full pane in at most three prepend commits', () => {
+    expect(transcriptBackfillFrameCount()).toBeLessThanOrEqual(3)
   })
 })

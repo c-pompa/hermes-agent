@@ -15,42 +15,53 @@
  * tokens or PII we never want on disk.
  */
 
-/** The fields Electron puts on the `console-message` event object
- *  (`Event<WebContentsConsoleMessageEventParams>`). */
-export interface ConsoleMessageEvent {
-  level: 'info' | 'warning' | 'error' | 'debug'
+interface ConsoleMessageDetails {
+  level: number
   message: string
-  sourceId: string
+  sourceUrl: string
   lineNumber: number
 }
 
 interface WebContentsLike {
-  on(event: 'console-message', listener: (event: ConsoleMessageEvent) => void): unknown
+  on(event: 'console-message', listener: (...args: unknown[]) => void): unknown
 }
 
 interface WindowLike {
   webContents: WebContentsLike
 }
 
-/** One desktop.log line for an error-level renderer console message, or null
- *  for every other level. */
-export function formatRendererConsoleLine(label: string, event: ConsoleMessageEvent): string | null {
-  if (event.level !== 'error') {
+/** Normalize Electron's two `console-message` signatures into one line, or
+ *  null for non-error levels. Canonical (Electron 36+): `(event, details)`;
+ *  deprecated positional: `(event, level, message, line, sourceId)`.
+ *  `level` is numeric 0..3, where 3 === error. */
+export function formatRendererConsoleLine(
+  label: string,
+  detailsOrLevel: unknown,
+  message?: unknown,
+  line?: unknown,
+  sourceId?: unknown
+): string | null {
+  const details =
+    detailsOrLevel && typeof detailsOrLevel === 'object' ? (detailsOrLevel as ConsoleMessageDetails) : null
+
+  const level = details ? details.level : detailsOrLevel
+
+  if (level !== 3) {
     return null
   }
 
-  return `[renderer console:${label}] ${String(event.message)} (${String(event.sourceId)}:${String(event.lineNumber)})`
+  const text = details ? details.message : message
+  const src = details ? details.sourceUrl : sourceId
+  const lineNo = details ? details.lineNumber : line
+
+  return `[renderer console:${label}] ${String(text)} (${String(src)}:${String(lineNo)})`
 }
 
 /** Attach the error-level console hook to a renderer window. `log` is the
- *  desktop.log sink (rememberLog in main.ts).
- *
- *  The listener MUST declare exactly one parameter: Electron still passes the
- *  legacy positional `(level, message, line, sourceId)` args after the event,
- *  and prints a deprecation warning at startup if any listener's arity is > 1. */
+ *  desktop.log sink (rememberLog in main.ts). */
 export function attachRendererConsoleCapture(win: WindowLike, label: string, log: (line: string) => void): void {
-  win.webContents.on('console-message', (event) => {
-    const formatted = formatRendererConsoleLine(label, event)
+  win.webContents.on('console-message', (_event, detailsOrLevel, message, line, sourceId) => {
+    const formatted = formatRendererConsoleLine(label, detailsOrLevel, message, line, sourceId)
 
     if (formatted !== null) {
       log(formatted)

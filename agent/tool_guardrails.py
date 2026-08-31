@@ -26,7 +26,6 @@ from agent.tool_result_classification import file_mutation_result_landed
 STALL_GUARD_REPEATABLE_TOOLS = frozenset(
     {
         "process",
-        "bfl_flux3_get_result",
     }
 )
 

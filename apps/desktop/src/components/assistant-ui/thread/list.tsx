@@ -22,7 +22,6 @@ import { useI18n } from '@/i18n'
 import { messagePaintWeight } from '@/lib/render-weight'
 import { cn } from '@/lib/utils'
 import {
-  $threadScrolledUp,
   onScrollToBottomRequest,
   onThreadEditClose,
   onThreadEditOpen,
@@ -106,10 +105,24 @@ export const transcriptPaneBudget = (mountedPanes: number, hidden: boolean): num
   hidden
     ? HIDDEN_TRANSCRIPT_RENDER_BUDGET
     : Math.max(Math.ceil(RENDER_BUDGET / Math.max(1, mountedPanes)), RENDER_BUDGET / 4)
-// Units the backfill adds per committed step (see the backfill effect). ~8-15
-// ordinary turns or 1-2 tool-heavy ones per frame — big enough to fill a page
-// in ~10 frames, small enough that no single commit approaches a frame budget.
-const BACKFILL_STEP = 60
+
+// "Show earlier" raises renderBudget ABOVE paneBudget (one pane page per click).
+// The render-phase cap must only snap a hot-hidden pane down to its retention
+// budget — a visible pane's growth has to survive the next render or the click
+// is a no-op. Parked panes are unmounted, so they never hit this path.
+export const shouldClampTranscriptBudget = (hidden: boolean, renderBudget: number, paneBudget: number): boolean =>
+  hidden && renderBudget > paneBudget
+// Units the backfill adds per committed step (see the backfill effect). A
+// 60-unit step produced ~10 visible prepend frames after FIRST_PAINT_BUDGET
+// retune (#83681). 290 fills a 600-unit page in two interruptible commits —
+// still well under the measured 780ms single-jump freeze.
+const BACKFILL_STEP = 290
+
+export const transcriptBackfillFrameCount = (
+  firstPaint = FIRST_PAINT_BUDGET,
+  step = BACKFILL_STEP,
+  budget = RENDER_BUDGET
+): number => Math.ceil(Math.max(0, budget - firstPaint) / step)
 
 // Browsers may quantize a requested scrollTop to a nearby device-pixel
 // boundary. use-stick-to-bottom otherwise compares the lower actual value to
@@ -165,20 +178,6 @@ export function subscribeToThreadForeground(shouldReanchor: () => boolean, onRea
 
     frameId = null
     framePending = false
-  }
-}
-
-// A run start follows to the latest turn ONLY when the reader is already
-// parked at the bottom. `thread.runStart` fires on any store.isRunning flip —
-// cron jobs, other Hermes clients, a queued drain driving the viewed session —
-// so an unconditional snap yanked a scrolled-up reader to the bottom on every
-// background turn. Local sends own their snap explicitly via
-// requestScrollToBottom() from the composer submit path. `isAtBottom` is a
-// reader (not a value) so the check always sees the latest position, never a
-// stale event-handler closure.
-export function followThreadRunStart(isAtBottom: () => boolean, scrollToBottom: () => void): void {
-  if (isAtBottom()) {
-    scrollToBottom()
   }
 }
 
@@ -448,7 +447,7 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
     setBudgetSessionKey(sessionKey)
     setHadGroups(hasGroups)
     setRenderBudget(FIRST_PAINT_BUDGET)
-  } else if (renderBudget > paneBudget) {
+  } else if (shouldClampTranscriptBudget(paneLifecycle === 'hot-hidden', renderBudget, paneBudget)) {
     // Apply the hidden budget during render so React never first commits the
     // stale full transcript after this pane moves to the background.
     setRenderBudget(paneBudget)
@@ -494,8 +493,8 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
   // backfilled turn at once — measured as a 780ms uninterruptible frame when
   // the session was revealed while other tiles streamed (the flushes kept
   // interrupting the transition, which finally landed whole, seconds later,
-  // mid-stream). Each step commits at most BACKFILL_STEP units (~40-80ms);
-  // the effect re-arms off the committed budget, so steps pace one per frame.
+  // mid-stream). Each step commits at most BACKFILL_STEP units; the effect
+  // re-arms off the committed budget, so steps pace one per frame.
   useEffect(() => {
     if (renderBudget >= paneBudget) {
       return
@@ -621,13 +620,8 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
   useEffect(() => onThreadEditOpen(beginEditHold), [beginEditHold])
   useEffect(() => onThreadEditClose(endEditHold), [endEditHold])
   useEffect(() => () => endEditHold(), [endEditHold])
-  // New run → follow to the latest turn only when the reader is at the bottom.
-  // runStart fires for background runs too (cron, other clients, queued drains
-  // of this session) — those must not hijack a scrolled-up reader's position.
-  // Local sends snap via requestScrollToBottom() from the composer submit path.
-  // Read the shared at-bottom atom synchronously so the guard always sees the
-  // latest position, never a stale event-handler closure.
-  useAuiEvent('thread.runStart', () => followThreadRunStart(() => !$threadScrolledUp.get(), () => void scrollToBottom()))
+  // New run → snap to the latest turn.
+  useAuiEvent('thread.runStart', () => void scrollToBottom())
 
   // Reset the cap and pin to bottom on mount + every session switch (messages
   // swap in place on a long-lived runtime, so sessionKey is the only signal).
@@ -712,14 +706,13 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
     }
 
     anchorBeforePrepend()
+    // Both paths grow the DOM budget by one pane page. Windowed rows are older
+    // than the current page, so expand-without-grow paints nothing.
+    setRenderBudget(budget => budget + paneBudget)
 
-    if (action === 'dom') {
-      setRenderBudget(budget => budget + paneBudget)
-
-      return
+    if (action === 'window') {
+      expandWindow()
     }
-
-    expandWindow()
   }, [anchorBeforePrepend, expandWindow, hiddenCount, olderAvailable, paneBudget])
 
   useLayoutEffect(() => {

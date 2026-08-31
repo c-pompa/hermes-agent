@@ -167,15 +167,23 @@ export interface SidebarNavItem {
   icon: React.ComponentType<{ className?: string }>
   route?: string
   action?: 'new-session'
-  /** Optional click handler for contributed rows that open a dialog/pane
-   *  instead of navigating to a route. */
-  onClick?: () => void
   /** Keybind action id — when set, the tooltip shows the keybind hint. */
   keybindActionId?: string
 }
 
+export interface PersistedDisplayTranscriptProvenance {
+  source: 'persisted-display'
+  connectionId: string
+  profile: string
+  storedSessionId: string
+  lineageRootId: string | null
+  coverage: 'latest-page'
+}
+
 export interface ClientSessionState {
   storedSessionId: string | null
+  transcriptAuthorityEpoch?: number
+  transcriptProvenance?: PersistedDisplayTranscriptProvenance
   messages: ChatMessage[]
   branch: string
   cwd: string

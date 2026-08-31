@@ -13,13 +13,6 @@ describe('anchoredRect', () => {
     expect(anchoredRect('bottom-left', size, viewport)).toMatchObject({ x: 12, y: 708 })
   })
 
-  it('spawns centered in the usable viewport', () => {
-    expect(anchoredRect('center', size, viewport)).toMatchObject({
-      x: (viewport.width - size.width) / 2,
-      y: viewport.top + (viewport.height - viewport.top - size.height) / 2
-    })
-  })
-
   it('never spawns over the reserved top chrome', () => {
     for (const anchor of ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const) {
       expect(anchoredRect(anchor, size, { width: 320, height: 120, top: 34 }).y).toBeGreaterThanOrEqual(34)
@@ -75,15 +68,6 @@ describe('reflowRect', () => {
     expect(reflowRect({ ...size, x: 1300, y: 60 }, 'top-left', viewport, shrunk).x).toBe(952)
   })
 
-  it('re-centers when the viewport changes for a center anchor', () => {
-    const start = anchoredRect('center', size, viewport)
-
-    expect(reflowRect(start, 'center', viewport, shrunk)).toMatchObject({
-      x: (shrunk.width - size.width) / 2,
-      y: shrunk.top + (shrunk.height - shrunk.top - size.height) / 2
-    })
-  })
-
   it('is identity for an in-bounds rect when the viewport did not change', () => {
     const rect = { ...size, x: 300, y: 300 }
 
@@ -98,14 +82,5 @@ describe('floatingPx', () => {
     expect(floatingPx(undefined, 240)).toBe(240)
     expect(floatingPx('auto', 240)).toBe(240)
     expect(floatingPx(Number.NaN, 240)).toBe(240)
-  })
-
-  it('resolves viewport-relative units when a viewport is provided', () => {
-    expect(floatingPx('50vw', 240, viewport)).toBe(viewport.width / 2)
-    expect(floatingPx('50vh', 240, viewport)).toBe(viewport.height / 2)
-  })
-
-  it('falls back for unknown expressions even with a viewport', () => {
-    expect(floatingPx('min(960px, 100vw)', 240, viewport)).toBe(240)
   })
 })

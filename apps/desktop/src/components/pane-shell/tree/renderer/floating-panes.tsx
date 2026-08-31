@@ -55,26 +55,14 @@ function FloatingPane({ pane }: { pane: Contribution }) {
   const chrome = paneChrome(pane)
   const anchor = chrome.anchor ?? 'top-right'
 
-  const viewport = useRef<FloatingViewport>(viewportNow())
-
-  const resolveSize = useCallback(
-    (v: FloatingViewport) => ({
-      width: floatingPx(chrome.width, DEFAULT_SIZE.width, v),
-      height: floatingPx(chrome.height, DEFAULT_SIZE.height, v)
-    }),
-    [chrome.height, chrome.width]
-  )
-
-  const sizeRef = useRef(resolveSize(viewport.current))
-
-  // Preserve authored CSS expressions (vw/vh/calc/min) in the DOM so the card
-  // can be responsive; the numeric `sizeRef` is for geometry/clamping.
-  const styleWidth = typeof chrome.width === 'string' ? chrome.width : sizeRef.current.width
-  const styleHeight = typeof chrome.height === 'string' ? chrome.height : sizeRef.current.height
+  const size = {
+    width: floatingPx(chrome.width, DEFAULT_SIZE.width),
+    height: floatingPx(chrome.height, DEFAULT_SIZE.height)
+  }
 
   const [rect, setRect] = useState<FloatingRect>(() => {
     const stored = readStored()[pane.id]
-    const spawned = anchoredRect(anchor, sizeRef.current, viewportNow())
+    const spawned = anchoredRect(anchor, size, viewportNow())
 
     return stored ? { ...spawned, x: stored.x, y: stored.y } : spawned
   })
@@ -82,6 +70,7 @@ function FloatingPane({ pane }: { pane: Contribution }) {
   const [collapsed, setCollapsed] = useState(() => readStored()[pane.id]?.collapsed ?? false)
 
   const drag = useRef<{ x: number; y: number } | null>(null)
+  const viewport = useRef<FloatingViewport>(viewportNow())
 
   const persist = useCallback(
     (next: FloatingRect, nextCollapsed: boolean) => {
@@ -90,17 +79,15 @@ function FloatingPane({ pane }: { pane: Contribution }) {
     [pane.id]
   )
 
-  // Track the viewport so an edge-anchored pane rides its edge on resize and
-  // viewport-relative sizes (vw/vh) update the geometry ref used for clamping.
+  // Track the viewport so an edge-anchored pane rides its edge on resize.
   // The previous-size read lives in the handler (not a useEffect body): it's
   // window geometry, not a mirrored reactive value.
   const handleResize = useCallback(() => {
     const next = viewportNow()
 
-    sizeRef.current = resolveSize(next)
-    setRect(current => reflowRect({ ...current, ...sizeRef.current }, anchor, viewport.current, next))
+    setRect(current => reflowRect(current, anchor, viewport.current, next))
     viewport.current = next
-  }, [anchor, resolveSize])
+  }, [anchor])
 
   useEffect(() => {
     window.addEventListener('resize', handleResize)
@@ -166,8 +153,8 @@ function FloatingPane({ pane }: { pane: Contribution }) {
       style={{
         left: rect.x,
         top: rect.y,
-        width: styleWidth,
-        height: collapsed ? undefined : styleHeight
+        width: size.width,
+        height: collapsed ? undefined : size.height
       }}
     >
       {/* Header IS the drag handle — the floating equivalent of a tab strip. */}
@@ -179,26 +166,14 @@ function FloatingPane({ pane }: { pane: Contribution }) {
         style={{ touchAction: 'none' }}
       >
         <span className="truncate font-medium">{pane.title ?? pane.id}</span>
-        <span className="flex items-center gap-0.5">
-          <button
-            className="rounded p-0.5 text-(--ui-text-quaternary) transition-colors hover:text-(--ui-text-primary)"
-            data-floating-no-drag=""
-            onClick={toggleCollapsed}
-            type="button"
-          >
-            <Codicon name={collapsed ? 'chevron-up' : 'chevron-down'} size="0.75rem" />
-          </button>
-          {typeof pane.data === 'object' && pane.data && typeof (pane.data as Record<string, unknown>).onClose === 'function' ? (
-            <button
-              className="rounded p-0.5 text-lg leading-none text-(--ui-text-quaternary) transition-colors hover:text-(--ui-text-primary)"
-              data-floating-no-drag=""
-              onClick={() => (pane.data as { onClose: () => void }).onClose()}
-              type="button"
-            >
-              ×
-            </button>
-          ) : null}
-        </span>
+        <button
+          className="rounded p-0.5 text-(--ui-text-quaternary) transition-colors hover:text-(--ui-text-primary)"
+          data-floating-no-drag=""
+          onClick={toggleCollapsed}
+          type="button"
+        >
+          <Codicon name={collapsed ? 'chevron-up' : 'chevron-down'} size="0.75rem" />
+        </button>
       </header>
 
       {!collapsed && (
