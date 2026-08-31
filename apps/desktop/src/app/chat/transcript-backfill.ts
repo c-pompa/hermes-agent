@@ -16,7 +16,7 @@
  */
 
 import { getOlderSessionMessages } from '@/hermes'
-import { type ChatMessage, toChatMessages } from '@/lib/chat-messages'
+import { type ChatMessage, chatMessagesEquivalent, chatMessageText, toChatMessages } from '@/lib/chat-messages'
 import { recordTranscriptBackfillPage, type TranscriptProfileScope, transcriptTailState } from '@/store/transcript-tail'
 
 /** Older rows likely exist beyond what the in-memory store holds. */
@@ -67,10 +67,28 @@ export function mergeOlderTranscriptPage(existing: ChatMessage[], olderPage: Cha
  * Re-anchor a refreshed TAIL onto a transcript that has backfilled older
  * pages. Background refreshes and post-turn rehydrates re-read only the
  * newest page; replacing the store with that page outright would silently
- * drop everything "Show earlier" already loaded. Find where the refreshed
- * tail begins inside the previous transcript and keep the older prefix.
- * When no anchor is found (compaction rewrite, different session), the
- * refreshed tail is authoritative — same behavior as before backfill existed.
+ * drop everything "Show earlier" already loaded. This is a MERGE — new
+ * information layered over what the user is looking at, never a clobber:
+ *
+ * 1. Anchor on the refreshed tail's first row inside the previous transcript
+ *    (durable row id, then the rendered message id) and splice: keep the
+ *    older prefix, take the refreshed tail as authoritative for the overlap.
+ * 2. The first refreshed row is unknown to the previous transcript — a
+ *    projection-skipped row the REST page carries (resume drops tool-only
+ *    assistant rows), or a burst of appends that pushed the overlap past the
+ *    page start. Keep only the rows PROVABLY older than the refreshed page
+ *    (durable row id below its first row's) and not already represented
+ *    inside it — a compaction epoch re-ids its copied tail, so a
+ *    fingerprint-covered "older" row is really a re-id'd row the refresh
+ *    already carries — then take the refreshed page whole. Rows the page
+ *    covers always come from the refresh.
+ * 3. Otherwise — no durable ids to order by (a backend older than this app)
+ *    or nothing provably older (genuine rewrite: compaction, a different
+ *    session): the refreshed tail is authoritative, same behavior as before
+ *    backfill existed.
+ *
+ * Rows the refresh left unchanged keep their previous object identity, so the
+ * runtime repository's conversion cache stays hot for settled rows.
  */
 export function graftRefreshedTailOntoBackfill(refreshedTail: ChatMessage[], previous: ChatMessage[]): ChatMessage[] {
   if (refreshedTail.length === 0 || previous.length === 0) {
@@ -85,11 +103,65 @@ export function graftRefreshedTailOntoBackfill(refreshedTail: ChatMessage[], pre
       message.id === first.id
   )
 
-  if (anchor <= 0) {
-    return refreshedTail
+  if (anchor >= 0) {
+    const grafted = [
+      ...previous.slice(0, anchor),
+      ...refreshedTail.map((message, offset) => {
+        const current = previous[anchor + offset]
+
+        return current !== undefined && chatMessagesEquivalent(current, message) ? current : message
+      })
+    ]
+
+    // A refresh that changed nothing hands back the previous array itself —
+    // publishing a fresh array of identical rows re-renders the runtime for
+    // nothing.
+    const unchanged =
+      grafted.length === previous.length && grafted.every((message, index) => message === previous[index])
+
+    return unchanged ? previous : grafted
   }
 
-  return [...previous.slice(0, anchor), ...refreshedTail]
+  const firstRowId = first.rowId
+
+  if (firstRowId !== undefined) {
+    const covered = new Set(refreshedTail.map(sharedRowFingerprint))
+
+    const prefix = previous.filter(
+      message =>
+        message.rowId !== undefined && message.rowId < firstRowId && !covered.has(sharedRowFingerprint(message))
+    )
+
+    if (prefix.length > 0) {
+      const previousByRowId = new Map<number, ChatMessage>()
+
+      for (const message of previous) {
+        if (message.rowId !== undefined) {
+          previousByRowId.set(message.rowId, message)
+        }
+      }
+
+      return [
+        ...prefix,
+        ...refreshedTail.map(message => {
+          const current = message.rowId !== undefined ? previousByRowId.get(message.rowId) : undefined
+
+          return current !== undefined && chatMessagesEquivalent(current, message) ? current : message
+        })
+      ]
+    }
+  }
+
+  return refreshedTail
+}
+
+/**
+ * Content-level identity of a row for cross-generation dedupe: a compaction
+ * epoch copies a message into a new row with the same role, timestamp and
+ * text, so those three fields — never the row id — recognize the copy.
+ */
+function sharedRowFingerprint(message: ChatMessage): string {
+  return `${message.role} | ${message.timestamp ?? ''} | ${chatMessageText(message)}`
 }
 
 export interface BackfillRequest {

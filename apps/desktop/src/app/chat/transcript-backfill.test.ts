@@ -144,18 +144,122 @@ describe('graftRefreshedTailOntoBackfill', () => {
     expect(graftRefreshedTailOntoBackfill(refreshed, previous).map(m => m.rowId)).toEqual([1, 2, 3, 4])
   })
 
-  it('returns the refreshed tail unchanged when no anchor is found', () => {
+  it('keeps the previous object identity for rows the refresh left unchanged', () => {
+    const previous = [chat('a', 1), chat('b', 2), chat('c', 3)]
+    // A fresh hydration of the same rows: equal content, fresh objects.
+    const refreshed = [chat('b', 2), chat('c', 3), chat('d', 4)]
+
+    const grafted = graftRefreshedTailOntoBackfill(refreshed, previous)
+
+    expect(grafted[0]).toBe(previous[0])
+    expect(grafted[1]).toBe(previous[1])
+    expect(grafted[2]).toBe(previous[2])
+    expect(grafted[3]).toBe(refreshed[2])
+  })
+
+  it('takes the refreshed row object when its content changed', () => {
+    const previous = [chat('a', 1), chat('b', 2)]
+    const changed = { ...chat('b', 2), reactions: [{ emoji: '👍', author: 'user' as const, at: 1 }] }
+    const refreshed = [chat('a', 1), changed]
+
+    const grafted = graftRefreshedTailOntoBackfill(refreshed, previous)
+
+    expect(grafted[0]).toBe(previous[0])
+    expect(grafted[1]).toBe(changed)
+  })
+
+  it('publishes the previous array itself when the refresh changed nothing', () => {
+    const previous = [chat('a', 1), chat('b', 2)]
+    const refreshed = [chat('a', 1), chat('b', 2)]
+
+    expect(graftRefreshedTailOntoBackfill(refreshed, previous)).toBe(previous)
+  })
+
+  it('keeps provably-older rows when no anchor is found (burst past the page start)', () => {
+    // previous ends at row 92 and a burst of appends pushed the refreshed
+    // page to rows 200-201: no shared row, but every previous row is provably
+    // older than the page — dropping them is the clobber this merge prevents.
     const previous = [chat('x', 90), chat('y', 91), chat('z', 92)]
     const refreshed = [chat('p', 200), chat('q', 201)]
+
+    const grafted = graftRefreshedTailOntoBackfill(refreshed, previous)
+
+    expect(grafted.map(m => m.rowId)).toEqual([90, 91, 92, 200, 201])
+    expect(grafted.slice(0, 3)).toEqual(previous.slice(0, 3))
+  })
+
+  it('keeps rows provably older than the refreshed page when its first row was projection-skipped', () => {
+    // previous came from the gateway resume projection, which drops the
+    // tool-only assistant row 2; the REST tail carries it, so the refreshed
+    // tail's FIRST row is unknown to previous. The older page the user
+    // expanded (row 1) must survive, and the shared row keeps its identity.
+    const previous = [chat('a', 1), chat('c', 3)]
+    const refreshed = [chat('b', 2), chat('c', 3), chat('d', 4)]
+
+    const grafted = graftRefreshedTailOntoBackfill(refreshed, previous)
+
+    expect(grafted.map(m => m.rowId)).toEqual([1, 2, 3, 4])
+    expect(grafted[0]).toBe(previous[0])
+    expect(grafted[2]).toBe(previous[1])
+    expect(grafted[1]).toBe(refreshed[0])
+    expect(grafted[3]).toBe(refreshed[2])
+  })
+
+  it('keeps expanded pages across a burst of appends larger than the tail page', () => {
+    const previous = [chat('a', 1), chat('b', 2)]
+    const refreshed = [chat('c', 9), chat('d', 10)]
+
+    const grafted = graftRefreshedTailOntoBackfill(refreshed, previous)
+
+    expect(grafted.map(m => m.rowId)).toEqual([1, 2, 9, 10])
+    expect(grafted[0]).toBe(previous[0])
+    expect(grafted[1]).toBe(previous[1])
+  })
+
+  it('does not duplicate a compaction epoch’s re-idded tail copies', () => {
+    // Same logical rows, re-persisted by a compaction epoch under new row
+    // ids: every "older" candidate is already represented in the refreshed
+    // page by content, so the refresh replaces rather than duplicates.
+    const copy = (text: string, rowId: number): ChatMessage => ({
+      // Hydrated rows key their renderer id off the durable row id, so a
+      // re-idded generation copy arrives under a DIFFERENT message id.
+      id: `row-${rowId}`,
+      role: 'user',
+      parts: [{ type: 'text', text }],
+      rowId,
+      timestamp: 100
+    })
+
+    const previous = [copy('turn a', 1), copy('turn b', 2), copy('turn c', 3)]
+    const refreshed = [copy('turn a', 11), copy('turn b', 12), copy('turn c', 13)]
 
     expect(graftRefreshedTailOntoBackfill(refreshed, previous)).toBe(refreshed)
   })
 
-  it('returns the refreshed tail when it is not shorter than the previous transcript', () => {
+  it('replaces when a legacy backend ships no durable ids and the head changed', () => {
+    // No row ids on either side: nothing is provably older than the page.
+    const legacy = (timestamp: number, index: number, text: string): ChatMessage => ({
+      id: `${timestamp}-${index}-user`,
+      role: 'user',
+      parts: [{ type: 'text', text }],
+      timestamp
+    })
+
+    const previous = [legacy(1, 0, 'old head'), legacy(2, 1, 'old tail')]
+    const refreshed = [legacy(3, 0, 'new head'), legacy(4, 1, 'new tail')]
+
+    expect(graftRefreshedTailOntoBackfill(refreshed, previous)).toBe(refreshed)
+  })
+
+  it('keeps the refreshed content when it is not shorter than the previous transcript', () => {
     const previous = [chat('a', 1)]
     const refreshed = [chat('a', 1), chat('b', 2)]
 
-    expect(graftRefreshedTailOntoBackfill(refreshed, previous)).toBe(refreshed)
+    const grafted = graftRefreshedTailOntoBackfill(refreshed, previous)
+
+    expect(grafted.map(m => m.id)).toEqual(['a', 'b'])
+    // The one shared row keeps its previous object identity.
+    expect(grafted[0]).toBe(previous[0])
   })
 })
 

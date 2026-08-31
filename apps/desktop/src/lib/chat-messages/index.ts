@@ -1,3 +1,9 @@
+export {
+  chatMessageArraysEquivalent,
+  chatMessagesEquivalent,
+  chatPartsEquivalent,
+  chatReactionsEquivalent
+} from './equivalence'
 export { toChatMessages } from './hydration'
 export {
   appendAssistantTextPart,

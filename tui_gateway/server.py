@@ -9523,6 +9523,12 @@ def _history_to_messages(history: list[dict]) -> list[dict]:
             # truncation was permanent.
             if args:
                 tool_msg["args"] = args
+            # Same durable row identity the user/assistant branch stamps below:
+            # a resumed tool-only tail groups into a standalone message whose
+            # hydrated id keys off this — without it that row falls to the
+            # ephemeral timestamp+index fallback and churns on every refresh.
+            if m.get("_row_id") is not None:
+                tool_msg["row_id"] = m["_row_id"]
             messages.append(tool_msg)
             continue
         # An assistant turn may carry only reasoning/thinking content with no

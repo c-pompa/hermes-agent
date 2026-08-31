@@ -2735,6 +2735,39 @@ def test_history_to_messages_ships_full_tool_args():
     assert "args" not in argless[0]
 
 
+def test_history_to_messages_stamps_durable_row_id_on_tool_rows():
+    # Desktop hydration keys transcript row identity off the durable
+    # messages.id (shipped as `row_id` here). The tool branch dropped it, so a
+    # resumed tool-only tail fell back to ephemeral timestamp+index ids and
+    # remounted on every background refresh.
+    history = [
+        {"role": "user", "content": "run it", "_row_id": 10},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "function": {"name": "terminal", "arguments": json.dumps({"command": "ls"})},
+                }
+            ],
+            "_row_id": 11,
+        },
+        {"role": "tool", "content": "{}", "tool_call_id": "call_1", "_row_id": 12},
+        {"role": "assistant", "content": "done", "_row_id": 13},
+    ]
+
+    rows = server._history_to_messages(history)
+
+    assert [row["role"] for row in rows] == ["user", "tool", "assistant"]
+    assert [row["row_id"] for row in rows] == [10, 12, 13]
+
+    # Rows without a stamped _row_id (history materialized before the stamp
+    # existed) keep the old shape — no row_id key at all.
+    unstamped = server._history_to_messages([{"role": "tool", "content": "{}", "tool_call_id": "missing"}])
+    assert "row_id" not in unstamped[0]
+
+
 def test_tool_start_ships_full_args(monkeypatch):
     # The desktop rebuilds the expanded row's `$` transcript from args. When
     # only the 80-char `context` preview shipped, the expanded command was

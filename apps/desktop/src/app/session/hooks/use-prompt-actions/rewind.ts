@@ -142,9 +142,11 @@ export function durableRowIdsForRebind(messages: readonly ChatMessage[]): number
 }
 
 /**
- * Renderer-synthetic message ids (`${timestamp}-${index}-${role}` from
- * chat-messages/hydration.ts, plus older `user-…` / `assistant-…` shapes). Gateway
- * history never carries them — only durable `row_id` / platform message_id.
+ * Renderer-synthetic message ids (`row-<messages.id>` from
+ * chat-messages/hydration.ts, the legacy `${timestamp}-${index}-${role}`
+ * fallback for pre-row-id backends, plus older `user-…` / `assistant-…`
+ * shapes). Gateway history never carries them — only durable `row_id` /
+ * platform message_id.
  */
 export function isSyntheticRendererId(messageId: string | undefined): boolean {
   return (
@@ -152,6 +154,7 @@ export function isSyntheticRendererId(messageId: string | undefined): boolean {
     (messageId.startsWith('user-') ||
       messageId.startsWith('assistant-') ||
       messageId.includes('-synthetic-') ||
+      /^row-\d+$/.test(messageId) ||
       /^\d+-\d+-(user|assistant|tools)\b/.test(messageId))
   )
 }
