@@ -123,19 +123,12 @@ js:lint-desktop:
     - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
       changes: *js-changes
 
-js:test-plugins-desktop:
-  stage: test
-  cache: *node-modules-cache
-  before_script: *npm-ci
-  # node --test over the plugin SDK tests — highest-value lane: the fork's
-  # headline feature is the desktop plugin system.
-  script:
-    - npm run --prefix apps/desktop check:test:plugins
-  rules:
-    - *rule-web
-    - *rule-default-branch
-    - if: $CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes: *js-changes
+# The plugin suites moved upstream from standalone `node --test` .test.mjs
+# files to colocated vitest *.test.ts under apps/desktop/src/plugins/, so the
+# fork's old `check:test:plugins` lane is gone with the script. Those tests
+# are matched by the ui project's `src/**/*.test.{ts,tsx}` include and run
+# inside js:test-desktop below (`npm run --prefix apps/desktop test` runs
+# every vitest project). No separate plugins job = no double coverage.
 
 js:test-desktop:
   stage: test

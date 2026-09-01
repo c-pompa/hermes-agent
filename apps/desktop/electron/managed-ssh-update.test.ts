@@ -284,11 +284,17 @@ test('POSIX managed launcher executes the updater command and atomically publish
   const home = await mkdtemp(path.join(os.tmpdir(), 'hermes-managed-launch-'))
 
   try {
+    // A fixture binary, not /bin/true: macOS has no /bin/true (it lives in
+    // /usr/bin), and the CI runner is macOS. The launcher must exec whatever
+    // path it is handed and publish THAT command's exit status.
+    const fakeHermes = path.join(home, 'fake-hermes')
+    await writeFile(fakeHermes, '#!/bin/sh\nexit 0\n', { mode: 0o755 })
+
     const command = buildPosixManagedUpdateLaunch(
       {
         ssh: { exec: async () => '' },
         platform: 'Linux',
-        hermesPath: '/bin/true',
+        hermesPath: fakeHermes,
         hermesHome: home
       },
       CORRELATION
@@ -298,11 +304,14 @@ test('POSIX managed launcher executes the updater command and atomically publish
     const statusPath = path.join(home, `.update_exit_code.${CORRELATION}`)
     let status = ''
 
-    for (let attempt = 0; attempt < 50 && !status; attempt += 1) {
+    // The status file is published by the detached child AFTER the launcher
+    // returned, so allow real scheduler slack (a loaded CI runner can starve
+    // the child well past a few hundred ms).
+    for (let attempt = 0; attempt < 100 && !status; attempt += 1) {
       try {
         status = await readFile(statusPath, 'utf8')
       } catch {
-        await new Promise(resolve => setTimeout(resolve, 10))
+        await new Promise(resolve => setTimeout(resolve, 25))
       }
     }
 
