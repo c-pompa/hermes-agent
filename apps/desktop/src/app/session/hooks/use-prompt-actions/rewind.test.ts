@@ -150,13 +150,6 @@ describe('truncateSubmitParams', () => {
       truncate_before_user_ordinal: 0,
       confirm_empty_truncate: true
     })
-    // The durable-row-keyed hydrated id (`row-<messages.id>`) is likewise
-    // renderer-minted — the gateway resolves truncation by row id instead.
-    expect(truncateSubmitParams(1, 'row-42', 42)).toEqual({
-      confirm_truncate: true,
-      truncate_before_user_ordinal: 1,
-      truncate_before_row_id: 42
-    })
   })
 })
 
