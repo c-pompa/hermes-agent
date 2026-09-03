@@ -46,9 +46,13 @@ haven't.
 
 ## 2. Coordinates / environment
 
-- **Mac checkout:** `~/.hermes/hermes-agent` — has working gitlab push creds.
-  May be running `hermes --tui`; keep its working tree undisturbed (do snapshot
-  builds in a throwaway `git worktree`).
+- **Mac dev checkout:** `~/git-repos/internal-repos/hermes-agent` — has the
+  gitlab push creds and the `upstream`/`github` remotes. All fork-sync work
+  happens here; do snapshot builds in a throwaway `git worktree`.
+- **Mac stable runtime:** `~/.hermes/hermes-agent` — managed checkout pinned
+  to fork `main` (split 2026-09-02). The live desktop app, gateway, and
+  `hermes` shim execute from it. Only touch it in step 7; never leave it
+  dirty or on a feature branch.
 - **mini (gateway server):** host `christianpompa@100.73.11.35` (**Tailscale —
   survives LAN renumbering**; LAN `10.88.5.52` also works today),
   checkout `/Users/christianpompa/.hermes/hermes-agent`.
@@ -77,7 +81,7 @@ Recompute the authoritative list any time with:
 
 ```bash
 # on the Mac, BASE = the upstream commit the CURRENT fork main was snapshotted from
-git -C ~/.hermes/hermes-agent diff --name-only <BASE> origin/main
+git -C ~/git-repos/internal-repos/hermes-agent diff --name-only <BASE> origin/main
 ```
 
 Current set (all **additive** — none overwrite upstream files):
@@ -134,7 +138,7 @@ new upstream scripts is a tracked follow-up in `FORK_CHANGELOG.md`).
 > The manual commands below remain the reference for what the script does.
 
 ```bash
-cd ~/.hermes/hermes-agent
+cd ~/git-repos/internal-repos/hermes-agent
 git remote -v   # sanity: origin=gitlab (fork), upstream=GitHub
 
 # 1. Fetch latest upstream and see what's new
@@ -240,7 +244,7 @@ delta dirs exist. The gateway `error.log` will show a `SIGTERM` + maybe an
 expected from the restart, not a failure.
 
 **Fleet smoke check (run after every deploy, from the MBP):**
-`~/.hermes/hermes-agent/scripts/fork-verify-fleet.sh` — verifies gateway
+`~/git-repos/internal-repos/hermes-agent/scripts/fork-verify-fleet.sh` — verifies gateway
 `:8642/health`, dashboards `:9119/:9121/:9122`, the metrics dashboard `:8899`
 feature surfaces (overview `/api/about`/`usage-map`/`recent`/`session-names`,
 benchmark `/api/benchmark/*`, events `/api/hitl-events`, findings, env-mode),
@@ -337,10 +341,15 @@ Same actions, same order, every release. ~30–60 min when patches apply clean.
 6. **Deploy to the mini FIRST** (§5) and verify (§6): health 200, dashboard
    200, clean boot log, one real agent turn, `requests.jsonl` gains a fresh
    record. The mini is the LAN gateway — it soaks before clients move.
-7. **Update the MacBook** (only after the mini is green): `git pull` fork
-   main in `~/.hermes/hermes-agent`, then
-   `~/.local/bin/uv pip install -e ".[all]" --python .venv/bin/python`;
-   quit/relaunch any `hermes --tui`; relaunch Hermes Desktop. If the Desktop
+7. **Update the MacBook** (only after the mini is green): since the
+   2026-09-02 runtime/dev split, `~/.hermes/hermes-agent` is the **managed
+   stable runtime** (live app, gateway, shim all execute from it) and
+   `~/git-repos/internal-repos/hermes-agent` is the dev checkout. Apply the
+   update **in the stable checkout only**: `git -C ~/.hermes/hermes-agent
+   pull` fork main, then
+   `~/.local/bin/uv pip install -e ".[all]" --python ~/.hermes/hermes-agent/venv/bin/python`;
+   quit/relaunch any `hermes --tui`; relaunch Hermes Desktop. Never build or
+   relaunch the live app from the dev checkout. If the Desktop
    app was rebuilt (`npm run pack`), **re-sign it before relaunching** so
    macOS TCC approvals survive: `bash ~/hermes-desktop-iac/macos/
    resign-desktop.sh` (stable "Hermes Local Signing" identity; or resume +
