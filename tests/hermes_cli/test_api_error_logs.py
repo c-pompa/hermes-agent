@@ -30,7 +30,7 @@ NON_RETRYABLE = (
 FALLBACK = (
     "2026-08-02 14:55:10,911 INFO [20260802_145508_8324f7] "
     "agent.chat_completion_helpers: Fallback activated: hermes/main → "
-    "qwen3.6-35b-a3b-uncensored-genesis-hermes-v5 (lmstudio)"
+    "qwen3.8-27b-hermes (lmstudio)"
 )
 MALFORMED = [
     # Mentions the marker but has no parseable fields.
@@ -83,7 +83,7 @@ def test_parses_fallback_activated(log_file):
     rows = api_error_logs.list_errors(log_path=log_file)
     row = next(r for r in rows if r["error_type"] == "FallbackActivated")
     assert row["provider"] == "lmstudio"
-    assert row["model"] == "qwen3.6-35b-a3b-uncensored-genesis-hermes-v5"
+    assert row["model"] == "qwen3.8-27b-hermes"
     assert row["reason"] == "fallback_activated"
     assert "hermes/main" in row["error_message"]
 
