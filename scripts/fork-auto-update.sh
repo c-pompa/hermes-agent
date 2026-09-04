@@ -65,6 +65,10 @@ if [ -z "$BASE" ]; then
   notify "error" "cannot determine BASE — manual runbook §4 needed"
   exit 1
 fi
+# Normalize to a full sha — a short BASE from an older publish subject would
+# never string-equal NEW below, and the script would rebuild a 0-commit
+# candidate every run.
+BASE=$(git rev-parse "$BASE")
 NEW=$(git rev-parse "$UPSTREAM_REMOTE/main")
 
 if [ "$NEW" = "$BASE" ]; then
