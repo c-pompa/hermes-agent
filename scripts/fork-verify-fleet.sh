@@ -42,8 +42,12 @@ check_http() {
 
 echo "== fleet verify $(date '+%Y-%m-%d %H:%M:%S') =="
 
-# Gateway (LAN endpoint)
-check_http "gateway :8642/health" "$GATEWAY_HTTP/health"
+# Gateway health — the mini's gateway binds 127.0.0.1:8642 only (loopback,
+# verified 2026-08-29), so a direct Tailscale probe can never pass. Probe via
+# ssh loopback like the dashboards below.
+gcode=$(ssh -o BatchMode=yes -o ConnectTimeout=6 "$MINI_SSH" \
+  "curl -s -m6 -o/dev/null -w '%{http_code}' http://127.0.0.1:8642/health" 2>/dev/null)
+[ "$gcode" = "200" ] && pass "gateway :8642/health" || fail "gateway :8642/health -> HTTP $gcode"
 
 # Loopback dashboards on the mini (need ssh)
 for p in 9119 9121 9122; do
