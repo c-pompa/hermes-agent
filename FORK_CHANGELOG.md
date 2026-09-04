@@ -15,7 +15,31 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-08-25 — vendored upstream `34041faea8`
+**Last sync:** 2026-09-04 — vendored upstream `63279301bc`
+(839 commits since `21b2095d00`; `v2026.8.31-934-g63279301bc`). Seven 3-way
+conflicts, all resolved upstream-first (union resolutions): the
+tool-guardrails area (`agent/tool_guardrails.py` + tests — dropped the dead
+idempotent/mutating taxonomy per the 2026-08-20 precedent, kept upstream's
+new progress-reset + identical-call-streak logic under the fork's
+all-tools no-progress patch), the file-read dedup area (`tools/file_tools.py`
++ tests — kept upstream's `content_served_in_generation` gate under the
+fork's re-serve-instead-of-BLOCK patch), `tests/run_agent/
+test_message_sequence_repair.py` (disjoint sections, both kept), and the
+cron UI (`web/src/lib/cron-job.test.ts`, `web/src/pages/CronPage.tsx` —
+upstream's `cronLastResult` badge + fork's Discord results channel, both
+kept). Plugin `test` green (targeted pytest + desktop build check).
+Published as `65c31a11e3` (MR !25), deployed 2026-09-04: mini via plugin
+(fleet verify 0), MacBook via in-app updater + manual re-sign/relaunch.
+**Process lessons:** (1) two upstream tests fail only on the macOS shell
+runner (POSIX launcher exec'd `/bin/true`; buzz-adapter long-path test
+exceeds macOS PATH_MAX) — fixed in `1a078ec5f9` and **recorded above as
+core patches this time**, because the 21b2095d0 re-apply had silently
+clobbered the un-recorded `40a85c26a9` launcher fix (main was red from
+pipeline #392 until the fix landed). (2) The publish commit subject must
+stay `vendor upstream <full-40-sha>` — the older short-sha subject broke
+`find_base` (status showed behind=839); the plugin now tolerates both.
+
+**Previous sync:** 2026-08-25 — vendored upstream `34041faea8`
 (585 commits since `7a54ab22e6`). Two 3-way conflicts, same files as recent
 cycles, both resolved upstream-first: `hermes_cli/web_server.py` (kept
 upstream's trusted-public-hosts `should_require_dashboard_auth()` gate;
@@ -37,7 +61,7 @@ stale names — `MINI_SSH`/`MINI_HTTP` now Tailscale-canonical
 `http://100.73.11.35:8642` (was `hermes-serv.cpompa.com`, whose DNS still
 answers the retired LAN IP `10.88.1.208`). Fleet verify 0 failures after.
 
-**Previous sync:** 2026-08-22 — vendored upstream `7a54ab22e6`
+**Older sync:** 2026-08-22 — vendored upstream `7a54ab22e6`
 (234 commits since `a86569bd1`; v0.20.4 → v0.20.5; also backfills the
 missing entry for `47c2d42c4`, the 2026-08-21 vendor of `a86569bd1`).
 Patch verdicts: **zero dropped, zero absorbed** this cycle. Three 3-way
