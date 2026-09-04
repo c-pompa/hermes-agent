@@ -228,6 +228,22 @@ Remote naming (unified 2026-07-23, both Mac and mini):
 ## Fork delta (re-apply after each upstream sync)
 
 ### Core code patches (⚠ upstream-owned files — check first on every sync)
+- ⚠ `apps/desktop/electron/managed-ssh-update.test.ts` + ⚠
+  `tests/gateway/test_buzz_adapter.py` — **macOS CI-runner test portability
+  (2026-09-04, re-apply of 40a85c26a9 + new).** The fork's gitlab runner is a
+  macOS shell executor; upstream CI is ubuntu, so two upstream tests fail
+  only for us. (1) The POSIX managed-launcher test exec'd the generated
+  launcher with `hermesPath: '/bin/true'`, which does not exist on macOS
+  (`true` lives in `/usr/bin`) — the detached child published exit 127.
+  Exec a fixture script written into the temp home instead, and poll the
+  status file 100×25ms (a loaded runner starves the detached child past
+  500ms). First applied 2026-08-30 (`40a85c26a9`), clobbered by the
+  21b2095d0 vendor re-apply because it was never recorded here — this entry
+  is the fix for that process gap. (2)
+  `test_live_media_redacts_long_path_before_bounding` builds six ~160-char
+  path components under pytest's tmp_path, exceeding macOS PATH_MAX (1024)
+  → mkdir ENAMETOOLONG. Five components stay under 1024 while the mocked
+  error string (path + 1000 z's) still exceeds the 900-char bound.
 - ⚠ `hermes_cli/web_server.py` (lifespan) — **cron ticker for isolated
   profile dashboards (2026-08-12).** The dashboard cron ticker was gated on
   `HERMES_DESKTOP=1`, so launchd-started `hermes -p <name> dashboard`
