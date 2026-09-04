@@ -5,7 +5,9 @@
 #      (validate-comfyui-skill, the original job), and
 #   2. mirrors the highest-value upstream GitHub Actions lanes
 #      (js-tests.yml, lint.yml, tests.yml smoke slice, uv-lockfile-check.yml)
-#      so fork changes get real signal without upstream's full matrix.
+#      so fork changes get real signal without upstream's full matrix, and
+#   3. composes the versioned runtime bundle (compose-bundle, dev/update/*/
+#      vendor/* branches only) per the fork-upgrader target architecture.
 #
 # Runner: homelab-pc-shell (project_type, run_untagged=true, macOS arm64
 # shell executor) — see memory project_homelab_gitlab.md for topology.
@@ -22,6 +24,7 @@ default:
 stages:
   - validate
   - test
+  - compose
 
 # ── Shared rule/change anchors ──────────────────────────────────────────────
 # Fail-open fallback: manual/web pipelines and pushes to the default branch
@@ -234,3 +237,31 @@ uv:lock-check:
       changes:
         - pyproject.toml
         - uv.lock
+
+# ── P4: runtime-bundle compose (target architecture, docs/ARCHITECTURE.md
+#        in the fork-upgrader plugin repo) ──────────────────────────────────
+# Composes the versioned runtime bundle: fork snapshot + pinned plugins
+# (bundle.yaml) + validated settings templates. Integration-flow branches
+# only — dev soaks, update/*/vendor/* are the plugin's candidate branches;
+# main stays release-only. Deploy-side bundle install is future work.
+compose-bundle:
+  stage: compose
+  variables:
+    FORK_UPGRADER_REF: "main"
+  # Portable across runner types: git/python3 are host-installed on the
+  # macOS shell runner (homebrew); the plugin scripts are stdlib-only.
+  before_script:
+    - rm -rf .fork-upgrader-ci
+    - git clone --quiet https://gitlab.cpompa.com/hermes-plugins/fork-upgrader.git .fork-upgrader-ci
+    - git -C .fork-upgrader-ci checkout --quiet "$FORK_UPGRADER_REF"
+  script:
+    - python3 .fork-upgrader-ci/plugins/fork-upgrader/scripts/settings_validate.py settings/templates --check-only
+    - python3 .fork-upgrader-ci/plugins/fork-upgrader/scripts/bundle_compose.py --manifest bundle.yaml --fork-repo . --out bundles
+  artifacts:
+    paths:
+      - bundles/
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
+    - if: $CI_COMMIT_BRANCH =~ /^update\//
+    - if: $CI_COMMIT_BRANCH =~ /^vendor\//

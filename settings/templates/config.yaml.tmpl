@@ -1,0 +1,23 @@
+# Settings template — render-at-deploy contract (fork-only content).
+#
+# This is a SEED, not a migration of any live config: the minimal keys the
+# settings CI step requires (top-level `model` and `providers`). Grow it as
+# real settings move under template management.
+#
+# Contract:
+#   - Commit this file with ${VAR} placeholders — NEVER real values.
+#     Behavioral settings may be literal; secrets (API keys, tokens) are
+#     always placeholders, rendered from each host's env file at deploy time
+#     (keys live in ~/.hermes/.env per repo convention).
+#   - CI (compose-bundle job) runs settings_validate.py --check-only:
+#     renders with dummy values, asserts valid YAML + top-level
+#     model/providers keys + no unresolved ${...}.
+#   - Deploy (FUTURE work) renders with settings_validate.py --env-file
+#     into ~/.hermes/config.yaml on each host.
+model:
+  provider: ${MODEL_PROVIDER}
+  default: ${MODEL_DEFAULT}
+providers:
+  ${MODEL_PROVIDER}:
+    base_url: ${PROVIDER_BASE_URL}
+    api_key: ${PROVIDER_API_KEY}
