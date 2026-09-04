@@ -55,8 +55,10 @@ git fetch "$FORK_REMOTE" --quiet || { log "ERROR: fetch $FORK_REMOTE failed"; wr
 
 # BASE = upstream sha the current fork main was vendored from. The fork tip
 # is often a patch commit, so scan recent history for the vendor message.
+# Tolerate older "Vendor upstream <short-sha>" subjects (e.g. 65c31a11e3,
+# 2026-09-03) — a short sha is unique enough for rev-list.
 BASE=$(git log -50 --format=%B "$FORK_REMOTE/main" \
-  | grep -oE 'vendor upstream ([0-9a-f]{40})' | head -1 | grep -oE '[0-9a-f]{40}' || true)
+  | grep -oiE 'vendor upstream ([0-9a-f]{7,40})\b' | head -1 | grep -oE '[0-9a-f]{7,40}' || true)
 if [ -z "$BASE" ]; then
   log "ERROR: cannot determine BASE from $FORK_REMOTE/main history"
   write_status "error" '"detail": "no vendor-upstream commit found in last 50"'

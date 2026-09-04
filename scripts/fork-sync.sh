@@ -103,8 +103,10 @@ git fetch "$FORK_REMOTE" --quiet
 
 BASE="${2:-}"
 if [ -z "$BASE" ]; then
+  # Tolerate older "Vendor upstream <short-sha>" subjects (65c31a11e3,
+  # 2026-09-03) — a short sha is unique enough for the 3-way apply.
   BASE=$(git log -20 --format=%B "$FORK_REMOTE/main" \
-    | grep -oE 'vendor upstream ([0-9a-f]{40})' | head -1 | grep -oE '[0-9a-f]{40}' || true)
+    | grep -oiE 'vendor upstream ([0-9a-f]{7,40})\b' | head -1 | grep -oE '[0-9a-f]{7,40}' || true)
 fi
 [ -n "$BASE" ] || { echo "ERROR: cannot determine BASE — pass it as arg 2"; exit 1; }
 NEW=$(git rev-parse "$TARGET")
