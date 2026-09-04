@@ -628,8 +628,9 @@ Remote naming (unified 2026-07-23, both Mac and mini):
 - **2026-07-27 — LM Studio 0.4.20 + fleet model policy.** Updating LM Studio
   unloads all models on that host; afterwards reload per the placement policy
   below and verify `lms ps` + `curl 127.0.0.1:8867/router/status`.
-  - **One large model per host.** MBP = `qwen3.6-35b-a3b-uncensored-genesis-hermes-v5`
-    ONLY. Pomps = cerebras coder first, 27b optionally after. Mini = gemma MLX.
+  - **One large model per host.** MBP = `qwen3.8-27b-hermes` ONLY
+    (genesis-hermes-v5 retired 2026-09-04 — removed from the pool, all
+    live configs, and the router). Pomps = cerebras coder first, 27b optionally after. Mini = gemma MLX.
     Two large models resident on the MBP (~39 GB+) caused repeated memory-pressure
     crashes — if the MBP crashes, `lms ps` first: >1 large model on `Local` is
     the smoking gun.
