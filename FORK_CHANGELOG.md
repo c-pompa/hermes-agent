@@ -252,6 +252,43 @@ Remote naming (unified 2026-07-23, both Mac and mini):
 ## Fork delta (re-apply after each upstream sync)
 
 ### Core code patches (⚠ upstream-owned files — check first on every sync)
+- NEW `hermes_cli/local_runtime/child_guard.py` + ⚠
+  `hermes_cli/config_defaults.py` (`local_runtime.child_guard` section) + ⚠
+  `agent/conversation_loop.py` (two guarded hook blocks, both marked with
+  delete-me comments: success hook just before `break  # Success, exit retry
+  loop`, failure hook right after the `classify_api_error` debug log) + NEW
+  `tests/hermes_cli/test_local_child_guard.py` — **wedged-child guard for
+  the managed llama.cpp router (2026-09-05, MR !31).** A router child wedged
+  alive: /health ok, GET /models loaded, every completion 500 "Compute
+  error", SIGTERM ignored. The watchdog only restarts on process exit, so
+  nothing noticed and turns burned all retries (500 = retryable, not
+  fallback-eligible). The guard counts consecutive 5xx/transport failures
+  per model against the managed endpoint; past the threshold it probes via
+  `touch_generate`, escalates to `/models/unload` (fresh autoload), then
+  SIGTERM/SIGKILL via psutil — once per cooldown window, never raising into
+  the loop. Upstream declined child supervision (ggml-org/llama.cpp#18912,
+  not-planned); tracked upstream as
+  https://github.com/NousResearch/hermes-agent/issues/104050. The whole
+  workaround (module + config section + the two hook blocks) is meant to be
+  DELETED when upstream adds child health supervision; a `child_guard_build`
+  marker under the runtimes root logs a re-test reminder when the pinned
+  llama.cpp build changes. Landed on fork main as merge `dd269f46d8`
+  (branch commits `95df23f109` + `688600bc3e`; semi-linear onto dev as
+  `08ed558332` + fix). MR 31's CI also surfaced a host-state test flake —
+  recorded as item (3) of the macOS CI-runner portability entry below.
+  **⚠ VENDOR-SYNC WARNING for upstream `3ffd44acd3` (refactor(hclib),
+  2026-09-02):** that commit deletes `model_failures()`, `actual_n_ctx()`,
+  and `keep_primary_loaded()` from `hermes_cli/local_runtime/supervisor.py`.
+  child_guard.py calls NONE of those three — but its `_router_client()`
+  duck-types `LlamaServerSupervisor.__new__` with only `port` + `api_key`
+  set and then calls `touch_generate()` and `unload_model()` (plus module
+  fn `state_path()`). When vendoring `3ffd44acd3`, verify in the new
+  supervisor.py that (a) `touch_generate` / `unload_model` / `state_path`
+  still exist with compatible signatures, and (b) `_request`/`_url` still
+  read only `self.port` + `self.api_key` — if the refactor moves router
+  HTTP elsewhere or adds instance-state dependencies, re-point
+  `_router_client()` accordingly, then re-run
+  `tests/hermes_cli/test_local_child_guard.py`.
 - ⚠ `apps/desktop/electron/managed-ssh-update.test.ts` + ⚠
   `tests/gateway/test_buzz_adapter.py` — **macOS CI-runner test portability
   (2026-09-04, re-apply of 40a85c26a9 + new).** The fork's gitlab runner is a
@@ -268,6 +305,13 @@ Remote naming (unified 2026-07-23, both Mac and mini):
   path components under pytest's tmp_path, exceeding macOS PATH_MAX (1024)
   → mkdir ENAMETOOLONG. Five components stay under 1024 while the mocked
   error string (path + 1000 z's) still exceeds the 900-char bound.
+  (3) ⚠ `tests/gateway/test_readiness.py` (2026-09-05, MR !31 fix commit
+  `688600bc3e`) — `test_collect_runtime_readiness_reports_healthy_local_runtime`
+  asserted overall readiness "ok" while `_probe_disk` reads the HOST's
+  filesystem and degrades at ≥90% usage; the homelab runner's data volume
+  sits at 92%, so the test was red only on CI (MR 31 `python:smoke-tests`).
+  Stubbed `gateway.readiness.shutil.disk_usage` to a fixed 40% so the
+  healthy-path assertion is host-independent.
 - ⚠ `hermes_cli/web_server.py` (lifespan) — **cron ticker for isolated
   profile dashboards (2026-08-12).** The dashboard cron ticker was gated on
   `HERMES_DESKTOP=1`, so launchd-started `hermes -p <name> dashboard`
