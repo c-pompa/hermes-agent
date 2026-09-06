@@ -5001,6 +5001,16 @@ def run_conversation(
                     outcome="success",
                 )
                 agent._touch_activity(f"API call #{api_call_count} completed")
+                # child_guard workaround (see the failure-side hook below):
+                # a successful managed-endpoint response resets the guard's
+                # consecutive-failure count. Delete with the module.
+                try:
+                    from hermes_cli.local_runtime import child_guard as _child_guard
+
+                    if _child_guard.is_managed_endpoint(getattr(agent, "base_url", "") or ""):
+                        _child_guard.note_inference_success(getattr(agent, "model", "") or "")
+                except Exception:
+                    pass  # the guard must never break the retry loop
                 break  # Success, exit retry loop
 
             except InterruptedError:
@@ -5333,6 +5343,19 @@ def run_conversation(
                     classified.retryable, classified.should_compress,
                     classified.should_rotate_credential, classified.should_fallback,
                 )
+                # child_guard workaround (ggml-org/llama.cpp#18912, closed
+                # not-planned): a wedged llama.cpp router child 500s forever
+                # while looking healthy and never trips fallback. Count the
+                # failure so the guard can probe/recycle the child. Delete
+                # this block with hermes_cli/local_runtime/child_guard.py.
+                try:
+                    from hermes_cli.local_runtime import child_guard as _child_guard
+
+                    if _child_guard.is_managed_endpoint(getattr(agent, "base_url", "") or ""):
+                        _child_guard.note_inference_failure(
+                            getattr(agent, "model", "") or "", status_code, api_error)
+                except Exception:
+                    pass  # the guard must never break the retry loop
                 agent._invoke_api_request_error_hook(
                     task_id=effective_task_id,
                     turn_id=turn_id,

@@ -18,6 +18,15 @@ def test_collect_runtime_readiness_reports_healthy_local_runtime(tmp_path, monke
     with sqlite3.connect(home / "state.db") as conn:
         conn.execute("CREATE TABLE probe (id INTEGER PRIMARY KEY)")
     monkeypatch.setenv("HERMES_HOME", str(home))
+    # The disk probe reads the HOST's filesystem, not the tmp home — a
+    # runner above the 90% degradation threshold (observed on the homelab
+    # macOS CI runner at 92%) flakes this otherwise host-independent test.
+    from collections import namedtuple
+
+    _Usage = namedtuple("usage", "total used free")
+    monkeypatch.setattr(
+        "gateway.readiness.shutil.disk_usage", lambda path: _Usage(100, 40, 60)
+    )
 
     result = collect_runtime_readiness(
         configured_model="test/model",

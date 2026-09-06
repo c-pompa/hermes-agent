@@ -4111,6 +4111,19 @@ DEFAULT_CONFIG = {
         # Extra ports detection probes for an external llama-server, in
         # addition to the default 8080.
         "detect_ports": [],
+        # WORKAROUND for wedged llama.cpp router children (alive, health-ok,
+        # inference 500s — ggml-org/llama.cpp#18912, closed not-planned).
+        # See hermes_cli/local_runtime/child_guard.py; delete this section
+        # with that module when upstream adds child health supervision.
+        "child_guard": {
+            # Master switch for the wedged-child guard.
+            "enabled": True,
+            # Consecutive 500-class/transport failures per model before the
+            # guard probes the router child.
+            "failure_threshold": 2,
+            # Minimum seconds between recovery attempts per model.
+            "recovery_cooldown_seconds": 300,
+        },
     },
 
     # Config schema version - bump this when adding new required fields
