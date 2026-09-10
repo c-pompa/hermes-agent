@@ -342,6 +342,12 @@ Remote naming (unified 2026-07-23, both Mac and mini):
   sits at 92%, so the test was red only on CI (MR 31 `python:smoke-tests`).
   Stubbed `gateway.readiness.shutil.disk_usage` to a fixed 40% so the
   healthy-path assertion is host-independent.
+  (4) ⚠ `apps/desktop/src/store/voice-prefs.test.ts` (2026-09-10) —
+  `vi.spyOn(localStorage, 'setItem')` silently no-ops against jsdom's
+  Storage (a legacy platform object that ignores instance defineProperty),
+  so the storage-full arms never threw and read back `'false'` instead of
+  `null`. Spy on `Storage.prototype` instead. Genuine upstream bug (from
+  `dc51977799`), not fork-specific — candidate for an upstream PR.
 - ⚠ `hermes_cli/web_server.py` (lifespan) — **cron ticker for isolated
   profile dashboards (2026-08-12).** The dashboard cron ticker was gated on
   `HERMES_DESKTOP=1`, so launchd-started `hermes -p <name> dashboard`

@@ -104,6 +104,11 @@ PATCH_FILES=(
   hermes_cli/main_desktop.py           # HERMES_DESKTOP_CWD_EXPLICIT (was main.py cmd_gui)
   # 2026-09-06 wedged-child guard: config defaults + readiness test hooks
   hermes_cli/config_defaults.py tests/gateway/test_readiness.py
+  # 2026-09-10 macOS runner test portability (FORK_CHANGELOG.md "Core code
+  # patches"; commit 1a078ec5f9 + jsdom Storage prototype-spy fix)
+  tests/gateway/test_buzz_adapter.py
+  apps/desktop/electron/managed-ssh-update.test.ts
+  apps/desktop/src/store/voice-prefs.test.ts
 )
 
 cd "$REPO"
