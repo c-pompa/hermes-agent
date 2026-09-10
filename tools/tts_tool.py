@@ -2862,7 +2862,17 @@ def _generate_neutts(text: str, output_path: str, tts_config: Dict[str, Any]) ->
         "--device", device,
     ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120, stdin=subprocess.DEVNULL)
+    # Cold-start cost: the backbone + codec + semantic encoder are loaded from
+    # disk on every call (the helper exits after synthesis), and synthesis may
+    # run on a remote host over SSH. That routinely takes 60-90s, so the old
+    # hardcoded 120s ceiling left almost no headroom. Override per profile with
+    # tts.neutts.timeout.
+    try:
+        synth_timeout = float(neutts_config.get("timeout", 240) or 240)
+    except (TypeError, ValueError):
+        synth_timeout = 240.0
+
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=synth_timeout, stdin=subprocess.DEVNULL)
     if result.returncode != 0:
         stderr = result.stderr.strip()
         # Filter out the "OK:" line from stderr
