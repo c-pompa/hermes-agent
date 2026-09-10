@@ -25,6 +25,15 @@ import logging
 import os
 import queue
 import re
+
+# Imported EAGERLY, never lazily inside the request helpers. Those helpers run
+# on daemon threads (retaindb-writer, soul-seed, prefetch), and a FIRST-TIME
+# import executed on a thread that is still running while the interpreter
+# finalizes can abort shutdown — the process then exits non-zero after pytest
+# has already printed a clean "N passed" summary, which CI reports as "all
+# tests passed but pytest exited non-zero". Importing here makes it happen once,
+# deterministically, on the main thread at module import.
+import requests
 import sqlite3
 import threading
 import time
@@ -220,7 +229,6 @@ class _Client:
         return h
 
     def request(self, method: str, path: str, *, params=None, json_body=None, timeout: float = 8.0) -> Any:
-        import requests
         url = f"{self.base_url}{path}"
         resp = requests.request(
             method.upper(), url,
@@ -309,7 +317,6 @@ class _Client:
 
     def upload_file(self, data: bytes, filename: str, remote_path: str, mime_type: str, scope: str, project_id: str | None) -> dict:
         import io
-        import requests
         url = f"{self.base_url}/v1/files"
         token = self.api_key.replace("Bearer ", "").strip()
         headers = {"Authorization": f"Bearer {token}", "x-sdk-runtime": "hermes-plugin"}
@@ -330,7 +337,6 @@ class _Client:
         return self.request("GET", f"/v1/files/{quote(file_id, safe='')}")
 
     def read_file_content(self, file_id: str) -> bytes:
-        import requests
         token = self.api_key.replace("Bearer ", "").strip()
         url = f"{self.base_url}/v1/files/{quote(file_id, safe='')}/content"
         resp = requests.get(url, headers={"Authorization": f"Bearer {token}", "x-sdk-runtime": "hermes-plugin"}, timeout=30, allow_redirects=True)
