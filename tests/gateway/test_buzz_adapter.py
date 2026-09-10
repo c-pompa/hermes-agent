@@ -3064,7 +3064,11 @@ class TestInboundMediaAuthorizationGate:
     async def test_live_media_redacts_long_path_before_bounding(self, tmp_path):
         parent = tmp_path
         private_parts = []
-        for index in range(6):
+        # 5 segments, not 6: pytest's tmp_path prefix plus six ~160-char
+        # components exceeds macOS PATH_MAX (1024) and mkdir fails with
+        # ENAMETOOLONG on the macOS CI runner. Five stays under 1024 while
+        # the mocked error (path + 1000 z's) still exceeds the 900 bound.
+        for index in range(5):
             part = f"private-{index}-" + ("x" * 150)
             private_parts.append(part)
             parent = parent / part
