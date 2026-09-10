@@ -10,9 +10,10 @@ from types import SimpleNamespace
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from gateway.platforms.base import CachedMedia, MessageType
+from gateway.platforms.base import CachedMedia
+from gateway.platforms.event import MessageType
 from tests.gateway._plugin_adapter_loader import load_plugin_adapter
-from gateway.platforms.base import MessageType
+from gateway.platforms.event import MessageType
 
 # Load plugins/platforms/buzz/adapter.py under a unique module name
 # (plugin_adapter_buzz) so it cannot collide with other plugin adapters
@@ -3063,11 +3064,7 @@ class TestInboundMediaAuthorizationGate:
     async def test_live_media_redacts_long_path_before_bounding(self, tmp_path):
         parent = tmp_path
         private_parts = []
-        # 5 segments, not 6: pytest's tmp_path prefix plus six ~160-char
-        # components exceeds macOS PATH_MAX (1024) and mkdir fails with
-        # ENAMETOOLONG on the macOS CI runner. Five stays under 1024 while
-        # the mocked error (path + 1000 z's) still exceeds the 900 bound.
-        for index in range(5):
+        for index in range(6):
             part = f"private-{index}-" + ("x" * 150)
             private_parts.append(part)
             parent = parent / part

@@ -15,7 +15,37 @@ direct `git pull upstream main` will conflict heavily.
 the "Fork delta" items below on top. Verify each still applies cleanly —
 items touching upstream-owned files (marked ⚠) are the ones to check first.
 
-**Last sync:** 2026-09-04 — vendored upstream `63279301bc`
+**Last sync:** 2026-09-10 — vendored upstream `4b6c5bee4c`
+(5426 commits since `63279301bc`). Big upstream refactor cycle —
+`web_server.py` split into a facade + 13 siblings with a `web_deps.late()`
+seam, `cron/scheduler.py` split into delivery/script/prompt/preflight
+modules, `run_conversation` decomposed into `agent/turn_*.py` phases,
+`hermes_cli/main.py` slimmed (cmd_gui → `main_desktop.py`), compute-host
+handlers moved to `tui_gateway/compute_host_bridge.py`. 18 files with 3-way
+conflicts, all resolved upstream-first; fork behavior re-sited where
+upstream moved the code: turn-error upgrade → `compute_host_bridge.py`,
+`HERMES_DESKTOP_CWD_EXPLICIT` → `main_desktop.py`, cron Discord delivery
+targets → `cron/scheduler_delivery.py`, NIM reasoning skip →
+`_merge_aux_extra_body()`, MoA stats passthrough → `AIAgent` override in
+`run_agent.py`, leading-user bridge → new Pass 4 in
+`_SEQUENCE_REPAIR_PASSES`. **Dropped:** the `_INTERRUPTED_PLACEHOLDER`
+write-side fix — upstream's `turn_truncation._continue_text` now never
+writes wire-empty interim turns natively. **Restored out-of-band:** the
+2026-09-06 wedged-child guard (`hermes_cli/local_runtime/child_guard.py`
++ test + `config_defaults.py` + `tests/gateway/test_readiness.py` hooks)
+which the sync script's file lists didn't cover — `scripts/fork-sync.sh`
+ADDITIVE/PATCH_FILES updated so future syncs carry it. Targeted pytest in
+the worktree: **591 passed** (sequence repair, guardrails, session search,
+aux client, cron discord/scheduler, child guard, readiness, file guards,
+dashboard admin, compute host).
+**Process lessons:** (1) `git apply --3way` conflict labels are
+worktree-vs-patch (`ours` = new upstream, `theirs` = fork patch) — resolve
+by content against `4b6c5bee4c`/`origin/main`, never by label. (2) Any fork
+commit adding NEW upstream-tree files must be added to `fork-sync.sh`
+ADDITIVE immediately, or the next vendor silently drops it (child_guard was
+caught only because the ported conversation_loop hooks import it).
+
+**Previous sync:** 2026-09-04 — vendored upstream `63279301bc`
 (839 commits since `21b2095d00`; `v2026.8.31-934-g63279301bc`). Seven 3-way
 conflicts, all resolved upstream-first (union resolutions): the
 tool-guardrails area (`agent/tool_guardrails.py` + tests — dropped the dead
@@ -39,7 +69,7 @@ pipeline #392 until the fix landed). (2) The publish commit subject must
 stay `vendor upstream <full-40-sha>` — the older short-sha subject broke
 `find_base` (status showed behind=839); the plugin now tolerates both.
 
-**Previous sync:** 2026-08-25 — vendored upstream `34041faea8`
+**Earlier sync:** 2026-08-25 — vendored upstream `34041faea8`
 (585 commits since `7a54ab22e6`). Two 3-way conflicts, same files as recent
 cycles, both resolved upstream-first: `hermes_cli/web_server.py` (kept
 upstream's trusted-public-hosts `should_require_dashboard_auth()` gate;

@@ -48,6 +48,9 @@ ADDITIVE=(
   cron/discord_channels.py
   tests/cron/test_discord_channels.py
   tests/hermes_cli/test_cron_discord_channels.py
+  # 2026-09-06 wedged llama.cpp child guard (see FORK_CHANGELOG.md)
+  hermes_cli/local_runtime/child_guard.py
+  tests/hermes_cli/test_local_child_guard.py
 )
 # Upstream-owned files carrying our code patches (see FORK_CHANGELOG.md §"Core
 # code patches"). Re-applied by 3-way apply; conflicts resolve upstream-first.
@@ -81,6 +84,8 @@ PATCH_FILES=(
   web/src/i18n/uk.ts web/src/i18n/zh.ts web/src/i18n/zh-hant.ts
   # 2026-08-12 cron per-job Discord results channel (see FORK_CHANGELOG.md)
   cron/scheduler.py hermes_cli/web_models.py hermes_cli/web_routers/cron.py
+  # 2026-09-10: upstream split scheduler.py; cron_delivery_targets now lives here
+  cron/scheduler_delivery.py
   tools/cronjob_tools.py tests/cron/test_scheduler.py
   web/src/pages/CronPage.tsx web/src/lib/cron-job.ts web/src/lib/cron-job.test.ts
   apps/desktop/src/app/cron/cron-job-model.ts
@@ -94,6 +99,11 @@ PATCH_FILES=(
   apps/desktop/src/i18n/types.ts apps/desktop/src/i18n/en.ts
   apps/desktop/src/i18n/zh.ts apps/desktop/src/i18n/zh-hant.ts
   apps/desktop/src/i18n/ja.ts apps/desktop/src/i18n/ar.ts
+  # 2026-09-10: upstream moved code our patches target into these siblings
+  tui_gateway/compute_host_bridge.py   # turn-error upgrade (was tui_gateway/server.py)
+  hermes_cli/main_desktop.py           # HERMES_DESKTOP_CWD_EXPLICIT (was main.py cmd_gui)
+  # 2026-09-06 wedged-child guard: config defaults + readiness test hooks
+  hermes_cli/config_defaults.py tests/gateway/test_readiness.py
 )
 
 cd "$REPO"
