@@ -22,6 +22,7 @@ from hermes_cli import kanban_db_dispatch as kbd
 from hermes_cli import kanban_db_workspace as kbw
 from hermes_cli import kanban_db_notify as kbn
 from hermes_cli import kanban_swarm as ks
+from hermes_cli import kanban_review as kr
 from hermes_cli import kanban_workflow
 from hermes_cli.kanban_output import (
     _ATTACHMENT_FIELDS, _RUNS_RUN_FIELDS, _SHOW_RUN_FIELDS, _bulk_apply, _err,
@@ -206,7 +207,7 @@ def _profile_author() -> str:
 
 
 _DELEGATED_CHILD_DENIED_ACTIONS: frozenset[str] = frozenset({
-    "init", "create", "swarm", "assign", "reclaim", "reassign", "link", "unlink",
+    "init", "create", "swarm", "review", "assign", "reclaim", "reassign", "link", "unlink",
     "claim", "comment", "attach", "attach-rm", "complete", "edit", "block",
     "schedule", "unblock", "promote", "archive", "dispatch", "daemon", "repair",
     "heartbeat", "notify-subscribe", "notify-unsubscribe", "specify", "decompose",
@@ -413,6 +414,39 @@ def _cmd_swarm(args: argparse.Namespace) -> int:
               "Workers: " + ", ".join(created.worker_ids) + "\n"
               f"Verifier: {created.verifier_id}\n"
               f"Synthesizer: {created.synthesizer_id}")
+    return 0
+
+
+def _cmd_review(args: argparse.Namespace) -> int:
+    try:
+        area_specs = kr.parse_area_specs(args.area)
+    except ValueError as exc:
+        return _err(f"kanban review: {exc}", 2)
+    with kbc.connect_closing() as conn:
+        try:
+            created, scope = kr.create_review_swarm(
+                conn, repo=args.repo, base=args.base, branch=args.branch,
+                area_specs=area_specs,
+                reviewer_profile=args.reviewer or _profile_author(),
+                verifier_assignee=args.verifier, synthesizer_assignee=args.synthesizer,
+                tenant=args.tenant, created_by=args.created_by or _profile_author(),
+                priority=args.priority,
+                idempotency_key=getattr(args, "idempotency_key", None),
+                extra_context=args.context,
+            )
+        except ValueError as exc:
+            return _err(f"kanban review: {exc}", 2)
+    if getattr(args, "json", False):
+        _print_json(created.as_dict() | {"scope": scope.as_dict()})
+    else:
+        areas = ", ".join(f"{name} ({len(paths)} files)" for name, paths in scope.areas.items())
+        integrated = (f"\nAlready on {scope.base} (skipped): " + ", ".join(scope.already_integrated)
+                      if scope.already_integrated else "")
+        print(f"Review swarm root: {created.root_id}\n"
+              f"Areas: {areas}\n"
+              f"Reviewers: " + ", ".join(created.worker_ids) + "\n"
+              f"Verifier: {created.verifier_id} (gated until reviewers finish)\n"
+              f"Report: {created.synthesizer_id}{integrated}")
     return 0
 
 
@@ -1318,7 +1352,7 @@ def _cmd_decompose(args: argparse.Namespace) -> int:
 
 
 _HANDLERS = {
-    "init": _cmd_init, "create": _cmd_create, "swarm": _cmd_swarm,
+    "init": _cmd_init, "create": _cmd_create, "swarm": _cmd_swarm, "review": _cmd_review,
     "list": _cmd_list, "ls": _cmd_list, "show": _cmd_show,
     "assign": _cmd_assign, "set-model": _cmd_set_model,
     "reclaim": _cmd_reclaim, "reassign": _cmd_reassign,
